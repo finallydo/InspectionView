@@ -42,6 +42,7 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 - WPF: 엔진 이벤트는 실행 스레드에서 오므로 뷰모델은 변경을 모아 두고 100ms DispatcherTimer(`MainViewModel.Tick`)에서 반영한다. UI 코드는 아이코닉 객체를 AddRef/Release 하지 않는다 (VariableTable 소유). 예외: `Viewer/ImageViewer` 는 표시 중인 Image 를 AddRef 해 소유한다.
 - 뷰어(`App/Viewer`): OpenTK 4 + GLWpfControl, GL 3.3. 실기(Intel UHD 630 + AvalonDock)에서 확인된 필수 사항 세 가지: (1) AvalonDock 이 창 내용을 Unloaded/Loaded 시키므로 GLWpfControl 은 Loaded 마다 새로 만들고 GL 자원을 다시 올린다, (2) 다시 그리기는 CompositionTarget.Rendering 에서 직접 InvalidateVisual 한다, (3) 프레임 끝에 GL.Flush+GL.Finish 가 없으면 D3D 공유 표면에 첫 프레임만 올라온다. 모든 GL 호출은 Render 콜백 안에서만 (업로드/삭제는 pending 큐로 미룸). 이미지는 `ImageTextureSet`(≤4096 타일 + 밉맵), 오버레이는 `OverlayLayer`(원본 객체를 참조하지 않음). 셰이더/OpenGL 오류는 CI 가 못 잡으므로 PC 에서 확인 필요.
 - Job: manifest 는 DataContractJsonSerializer(net48 호환, 외부 의존 없음). 리소스(ROI/모델/파라미터)는 실행 시 같은 이름의 변수로 로드된다. `JobRunner` 는 인스턴스당 한 스레드, 예외 대신 `JobResult.Code`.
+- 2.5D(`Operators/Surface`): 스택 입력은 `ObjectArray<Image>` (스크립트에서 `[Img1, Img2, ...]` 로 전달 가능). `StackOps.Validate/ToFloat/ForRows` 로 검증·Float32 변환·행 병렬화. 좌표 규약: 위치는 픽셀 인덱스(픽셀 중심 = 정수), 기울기 GradientX = dz/dcol, GradientY = dz/drow, 높이 z 는 카메라 쪽이 +. 라인/디스패리티의 "없음" 은 -1.
 - 예외 정책: 연산자는 `VisionException` 만 던진다. 런타임 API 는 `OperatorInvoker.Invoke` / `TryExecute` 로 에러 코드를 반환한다.
 
 ## 스크립트 문법 (확정)
@@ -71,4 +72,5 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 3. ~~App: 도킹 레이아웃, 에디터, 변수창(썸네일), 연산자 트리, OpenGL 뷰어(타일/밉맵, 오버레이, ROI, 프로파일), 히스토그램/라인 프로파일, 다중 그래픽 창~~ (완료) → 2.5D 3D 보기는 이후
 4. ~~Runtime: Job zip, 터미널 바인딩, C# API, C++/CLI 브리지, IDE Job 메뉴/터미널 창~~ (완료)
 5. 연산자 확장 ~~1차 필터/산술/모폴로지/영역~~, ~~2차 에지/XLD(EdgesSubPix, 피팅, 변환), MeasurePos, NCC 매칭, ListFiles~~ (완료). 미구현: 회전/스케일 매칭(shape model), 1D 측정 쌍(MeasurePairs), 캘리브레이션
-6. 2.5D 연산자군 → 카메라 인터페이스/플러그인 → GPU(CUDA) → 노드 UI(Nodify)
+6. ~~2.5D 연산자군 (`Operators/Surface`): PhotometricStereo(기울기/알베도/Frankot-Chellappa 높이), FocusMeasure + DepthFromFocus(FocusOps 공유, AutoFocus 도 사용), ExtractLaserLine / MeasureProfileSheetOfLight / DisparityToHeight, PhaseShiftDecode(위상 천이 디코딩), ComposeIllumination(조명 합성)~~ (완료). 미구현: 위상 언래핑, 시트오브라이트 기하 캘리브레이션, 3D 높이맵 보기
+7. 카메라 인터페이스/플러그인 → GPU(CUDA) → 노드 UI(Nodify)
