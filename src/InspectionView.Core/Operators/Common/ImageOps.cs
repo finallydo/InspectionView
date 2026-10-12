@@ -87,7 +87,7 @@ namespace InspectionView.Core.Operators.Common
             try
             {
                 using (var s = MatInterop.AsMat(src))
-                using (var us = s.GetUMat(AccessFlag.READ))
+                using (var us = s.GetUMat(AccessFlag.READ, UMatUsageFlags.None))
                 using (var ud = new UMat(src.Height, src.Width, MatInterop.ToMatType(dst.PixelType, dst.Channels)))
                 using (var d = MatInterop.AsMat(dst, forWrite: true))
                 {
@@ -118,8 +118,8 @@ namespace InspectionView.Core.Operators.Common
             {
                 using (var ma = MatInterop.AsMat(a))
                 using (var mb = MatInterop.AsMat(b))
-                using (var ua = ma.GetUMat(AccessFlag.READ))
-                using (var ub = mb.GetUMat(AccessFlag.READ))
+                using (var ua = ma.GetUMat(AccessFlag.READ, UMatUsageFlags.None))
+                using (var ub = mb.GetUMat(AccessFlag.READ, UMatUsageFlags.None))
                 using (var ud = new UMat(a.Height, a.Width, MatInterop.ToMatType(dst.PixelType, dst.Channels)))
                 using (var d = MatInterop.AsMat(dst, forWrite: true))
                 {

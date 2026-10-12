@@ -154,19 +154,19 @@ namespace InspectionView.Core.Operators.Camera
     public sealed class SetFramegrabberParam : OperatorBase
     {
         [Input] public CameraHandle? Camera { get; set; }
-        [Input(Description = "Parameter name.")] public string Name { get; set; } = "";
+        [Input(Name = "Name", Description = "Parameter name.")] public string ParamName { get; set; } = "";
         [Input(Description = "New value (omit for command parameters).", Optional = true)] public TupleValue? Value { get; set; }
 
         protected override void Validate()
         {
             Require(Camera, nameof(Camera));
-            RequireNotEmpty(Name, nameof(Name));
+            RequireNotEmpty(ParamName, "Name");
         }
 
         [Backend(BackendKind.Cpu)]
         private void RunCpu(OperatorContext ctx)
         {
-            Camera!.Camera.SetParameter(Name, Value);
+            Camera!.Camera.SetParameter(ParamName, Value);
         }
     }
 
@@ -178,21 +178,21 @@ namespace InspectionView.Core.Operators.Camera
     public sealed class GetFramegrabberParam : OperatorBase
     {
         [Input] public CameraHandle? Camera { get; set; }
-        [Input(Description = "Parameter name.")] public string Name { get; set; } = "";
+        [Input(Name = "Name", Description = "Parameter name.")] public string ParamName { get; set; } = "";
 
         [Output] public TupleValue? Value { get; private set; }
 
         protected override void Validate()
         {
             Require(Camera, nameof(Camera));
-            RequireNotEmpty(Name, nameof(Name));
+            RequireNotEmpty(ParamName, "Name");
         }
 
         [Backend(BackendKind.Cpu)]
         private void RunCpu(OperatorContext ctx)
         {
             var cam = Camera!.Camera;
-            switch (Name.ToLowerInvariant())
+            switch (ParamName.ToLowerInvariant())
             {
                 case "availableparamnames": Value = cam.Parameters.Select(p => p.Name).ToArray(); return;
                 case "provider": Value = cam.Info.Provider; return;
@@ -201,7 +201,7 @@ namespace InspectionView.Core.Operators.Camera
                 case "serial": Value = cam.Info.Serial; return;
                 case "isacquiring": Value = cam.IsAcquiring; return;
             }
-            Value = ToTuple(cam.GetParameter(Name));
+            Value = ToTuple(cam.GetParameter(ParamName));
         }
 
         internal static TupleValue ToTuple(object? v)
