@@ -17,6 +17,8 @@
     <!-- OpenGL 뷰어 (D3DImage 기반이라 Airspace 문제 없음) -->
     <PackageReference Include="OpenTK" Version="4.8.2" />
     <PackageReference Include="OpenTK.GLWpfControl" Version="4.2.3" />
+    <!-- 노드 편집기 -->
+    <PackageReference Include="Nodify" Version="6.6.0" />
   </ItemGroup>
 
   <ItemGroup>

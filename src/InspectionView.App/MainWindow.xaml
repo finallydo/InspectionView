@@ -5,6 +5,7 @@
         xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
         xmlns:vm="clr-namespace:InspectionView.App.ViewModels"
         xmlns:viewer="clr-namespace:InspectionView.App.Viewer"
+        xmlns:nodes="clr-namespace:InspectionView.App.Nodes"
         xmlns:rt="clr-namespace:InspectionView.Runtime;assembly=InspectionView.Runtime"
         x:Name="Root"
         Title="{Binding Title}" Height="860" Width="1400"
@@ -243,6 +244,9 @@
                                         </ContextMenu>
                                     </avalonedit:TextEditor.ContextMenu>
                                 </avalonedit:TextEditor>
+                            </ad:LayoutDocument>
+                            <ad:LayoutDocument x:Name="NodesDocument" Title="Nodes" ContentId="nodes" CanClose="False">
+                                <nodes:NodeEditorView x:Name="NodeEditor" DataContext="{Binding NodeGraph}" />
                             </ad:LayoutDocument>
                         </ad:LayoutDocumentPane>
 

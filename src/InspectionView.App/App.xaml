@@ -3,5 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Nodify 노드 편집기 테마 -->
+                <ResourceDictionary Source="pack://application:,,,/Nodify;component/Themes/Dark.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/Nodify;component/Themes/Nodify.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

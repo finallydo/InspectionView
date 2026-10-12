@@ -135,12 +135,16 @@ namespace InspectionView.App.ViewModels
             };
 
             Camera = new CameraViewModel(Engine.Variables, msg => { StatusText = msg; Log(msg); });
+            NodeGraph = new Nodes.NodeGraphViewModel(Registry);
 
             BuildOperatorTree();
         }
 
         /// <summary>Camera 창 뷰모델.</summary>
         public CameraViewModel Camera { get; }
+
+        /// <summary>노드 편집기 뷰모델 (스크립트와 같은 레지스트리 위에서 동작).</summary>
+        public Nodes.NodeGraphViewModel NodeGraph { get; }
 
         private void Log(string message)
         {

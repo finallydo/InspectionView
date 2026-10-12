@@ -142,5 +142,8 @@ IDE 의 Camera 창에서 공급자/장치를 골라 열고 Snap(변수로) / Liv
 - OpenCL (Intel/AMD/NVIDIA 공통): OpenCL 런타임이 있으면 자동 탐지되어 상태 표시줄에 `GPU: OpenCL: <디바이스>` 로 표시되고, 백엔드를 Auto/Gpu 로 두면 필터·산술·그레이 모폴로지 연산자가 OpenCV T-API(UMat) 로 GPU 에서 실행된다. 타이밍 창의 Backend 열이 실제 사용 백엔드다.
 - CUDA: `InspectionView.Native` 를 `IVN_WITH_CUDA` 로 빌드하면 디바이스 메모리 경로가 활성화된다 (커널은 아직 없음).
 
+## 노드 편집기
+Nodes 탭(Nodify)에서 같은 스크립트를 노드 그래프로 편집한다. From Script 로 에디터 내용을 그래프로 읽고(연산자 호출 대입문만, if/for 가 있으면 스크립트 모드), 연산자 트리 더블클릭으로 노드 추가, 포트 드래그로 연결, 노드 안에서 리터럴 편집, To Script / Run 으로 다시 스크립트로 쓴다. 노드 위치는 각 줄 끝의 `// @node x,y` 주석에 저장된다.
+
 ## 다음 단계
-1. 노드 UI(Nodify), AutoFocus, 위상 언래핑, CUDA 커널
+1. AutoFocus, 위상 언래핑, CUDA 커널, 영역 연산자 GPU 경로

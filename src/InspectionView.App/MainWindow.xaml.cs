@@ -76,6 +76,7 @@ namespace InspectionView.App
             _vm.ScriptDisplayRequested += OnScriptDisplay;
             _vm.ScriptClearWindowRequested += OnScriptClearWindow;
             _vm.Camera.LiveFrame += frame => Display(_activeViewer, frame, "Live");
+            SetupNodeEditor();
             RegisterViewer(Viewer);
             _activeViewer = Viewer;
 
@@ -641,10 +642,64 @@ namespace InspectionView.App
         // 이벤트 핸들러
         // ------------------------------------------------------------------
 
+        // ------------------------------------------------------------------
+        // 노드 편집기 ↔ 스크립트
+        // ------------------------------------------------------------------
+
+        private string _nodeSyncedScript = "";
+
+        private void SetupNodeEditor()
+        {
+            NodeEditor.FromScriptRequested += NodesFromScript;
+            NodeEditor.ToScriptRequested += () => NodesToScript();
+            NodeEditor.RunRequested += () =>
+            {
+                if (NodesToScript() && _vm.CanRun)
+                    _vm.Run(Editor.Text);
+            };
+            // Nodes 탭을 열 때 스크립트가 바뀌어 있으면 다시 읽는다
+            NodesDocument.IsActiveChanged += (s, e) =>
+            {
+                if (NodesDocument.IsActive && Editor.Text != _nodeSyncedScript && !_vm.NodeGraph.IsDirty)
+                    NodesFromScript();
+            };
+        }
+
+        private void NodesFromScript()
+        {
+            if (_vm.NodeGraph.LoadFromScript(Editor.Text))
+                _nodeSyncedScript = Editor.Text;
+            _vm.StatusText = _vm.NodeGraph.Status;
+        }
+
+        private bool NodesToScript()
+        {
+            try
+            {
+                string script = _vm.NodeGraph.ToScript();
+                _nodeSyncedScript = script;
+                Editor.Text = script;
+                _vm.StatusText = "Script updated from nodes";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _vm.StatusText = "Nodes -> script failed: " + ex.Message;
+                return false;
+            }
+        }
+
         private void OnOperatorDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (OperatorTreeView.SelectedItem is OperatorNode node && !node.IsCategory)
             {
+                if (NodesDocument.IsActive)
+                {
+                    // 노드 편집기가 활성이면 노드로 추가
+                    _vm.NodeGraph.AddNode(node.Name);
+                    e.Handled = true;
+                    return;
+                }
                 var doc = Editor.Document;
                 var line = doc.GetLineByNumber(Editor.TextArea.Caret.Line);
                 string text = node.InsertText;

@@ -87,10 +87,13 @@ namespace InspectionView.Core.Operators.Common
             try
             {
                 using (var s = MatInterop.AsMat(src))
-                using (var us = s.GetUMat(AccessFlag.READ, UMatUsageFlags.None))
+                using (var us = new UMat())
                 using (var ud = new UMat(src.Height, src.Width, MatInterop.ToMatType(dst.PixelType, dst.Channels)))
                 using (var d = MatInterop.AsMat(dst, forWrite: true))
                 {
+                    // 복사해서 올린다: Image 의 패딩 stride 를 그대로 감싼 UMat 은 더 큰 버퍼의 ROI 로 취급되어
+                    // 필터가 경계 밖(패딩) 픽셀을 읽는다.
+                    s.CopyTo(us);
                     op(InputArray.Create(us), OutputArray.Create(ud));
                     ud.CopyTo(d);
                     if (d.Data != dst.GetHostPointer())
@@ -118,11 +121,13 @@ namespace InspectionView.Core.Operators.Common
             {
                 using (var ma = MatInterop.AsMat(a))
                 using (var mb = MatInterop.AsMat(b))
-                using (var ua = ma.GetUMat(AccessFlag.READ, UMatUsageFlags.None))
-                using (var ub = mb.GetUMat(AccessFlag.READ, UMatUsageFlags.None))
+                using (var ua = new UMat())
+                using (var ub = new UMat())
                 using (var ud = new UMat(a.Height, a.Width, MatInterop.ToMatType(dst.PixelType, dst.Channels)))
                 using (var d = MatInterop.AsMat(dst, forWrite: true))
                 {
+                    ma.CopyTo(ua);
+                    mb.CopyTo(ub);
                     op(InputArray.Create(ua), InputArray.Create(ub), OutputArray.Create(ud));
                     ud.CopyTo(d);
                     if (d.Data != dst.GetHostPointer())
