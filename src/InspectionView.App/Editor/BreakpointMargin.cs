@@ -10,7 +10,7 @@ namespace InspectionView.App.Editor
     /// <summary>줄 번호 왼쪽의 브레이크포인트 여백. 클릭으로 토글한다.</summary>
     public sealed class BreakpointMargin : AbstractMargin
     {
-        private const double Width = 18;
+        private const double MarginWidth = 18;
         private static readonly Brush Fill = new SolidColorBrush(Color.FromRgb(0xE5, 0x14, 0x00));
         private static readonly Brush Background = new SolidColorBrush(Color.FromRgb(0xF0, 0xF0, 0xF0));
 
@@ -26,7 +26,7 @@ namespace InspectionView.App.Editor
             Background.Freeze();
         }
 
-        protected override Size MeasureOverride(Size availableSize) => new Size(Width, 0);
+        protected override Size MeasureOverride(Size availableSize) => new Size(MarginWidth, 0);
 
         protected override void OnTextViewChanged(TextView oldTextView, TextView newTextView)
         {
@@ -57,8 +57,8 @@ namespace InspectionView.App.Editor
 
                 double y = vl.VisualTop - tv.VerticalOffset;
                 double h = vl.Height;
-                double r = Math.Min(h, Width) / 2 - 2;
-                dc.DrawEllipse(Fill, null, new Point(Width / 2, y + h / 2), r, r);
+                double r = Math.Min(h, MarginWidth) / 2 - 2;
+                dc.DrawEllipse(Fill, null, new Point(MarginWidth / 2, y + h / 2), r, r);
             }
         }
 

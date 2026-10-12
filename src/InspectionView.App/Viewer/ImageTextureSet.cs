@@ -144,7 +144,7 @@ namespace InspectionView.App.Viewer
                     T* dstRow = dst + (long)r * w * outCh;
                     if (srcCh == outCh)
                     {
-                        Buffer.MemoryCopy(srcRow, dstRow, (long)w * outCh * elem, (long)w * outCh * elem);
+                        System.Buffer.MemoryCopy(srcRow, dstRow, (long)w * outCh * elem, (long)w * outCh * elem);
                     }
                     else
                     {
