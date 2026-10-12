@@ -26,11 +26,12 @@ InspectionView/
 │  │  └─ Operators/  IO(ReadImage, WriteImage), Segmentation(Threshold),
 │  │                 Regions(Connection, SelectShape), Images(ReduceDomain, CropPart)
 │  ├─ InspectionView.Native/          [C++ DLL]  GPU 백엔드 (CUDA 옵션, 없으면 device_count = 0)
-│  ├─ InspectionView.Script/          [net8.0; net48]  스크립트 AST (파서/인터프리터는 다음 단계)
+│  ├─ InspectionView.Script/          [net8.0; net48]  스크립트: Lexing/Parsing(AST) → Compilation(명령 리스트) → Runtime(인터프리터, ScriptEngine)
 │  ├─ InspectionView.Runtime/         [net8.0; net48]  Job 패키지 manifest (zip 입출력/실행기는 다음 단계)
 │  └─ InspectionView.App/             [net8.0-windows WPF]  IDE 껍데기 (AvalonDock / AvalonEdit 참조)
 ├─ tests/
-│  └─ InspectionView.Core.Tests/      xunit (Region 집합연산, Image/Mat 상호운용, 레지스트리, ReadImage)
+│  ├─ InspectionView.Core.Tests/      xunit (Region 집합연산, Image/Mat 상호운용, 레지스트리, 연산자)
+│  └─ InspectionView.Script.Tests/    xunit (렉서/파서/컴파일러/엔진)
 └─ plugins/                           연산자 플러그인 DLL 폴더 (실행 시 Plugins/ 로 복사)
 ```
 
@@ -80,6 +81,22 @@ public sealed class Threshold : OperatorBase
 - 오류: 연산자는 `VisionException(ErrorCode)` 를 던진다. IDE 는 예외로 해당 줄에서 정지하고,
   런타임은 `OperatorInvoker.Invoke(...)` / `OperatorBase.TryExecute(...)` 로 에러 코드를 받는다.
 
+### 스크립트
+```
+// 주석. 대입은 =, 문자열은 '...'
+Image = ReadImage('C:/img/part.png')
+Region = Threshold(Image, 128, 255)
+Parts = Connection(Region)
+Big = SelectShape(Parts, 'Area', 500, 100000)
+for I = 0 to Len(Big) - 1
+    if Big[I].Width > 50
+        Print('wide part', I, Big[I].Area)
+    endif
+endfor
+```
+`ScriptEngine`: `Load` → `Run`(F5) / `Step`(F6) / `Stop` / `Reset` / `SetNextLine`(PC 이동), 브레이크포인트, `LineChanged` / `Variables.Changed` / `ErrorOccurred` 이벤트.
+오류가 나면 그 줄에서 멈추고(`State == Error`), 고친 뒤 `Run` 하면 그 줄부터 다시 실행한다.
+
 ### 스크립트에서의 호출 흐름
 ```
 Image = ReadImage('C:/img/a.png')
@@ -88,7 +105,6 @@ Image = ReadImage('C:/img/a.png')
 ```
 
 ## 다음 단계
-1. Script: 렉서/파서 → AST, 인터프리터(변수 테이블, 브레이크포인트, 줄 단위 실행), 백그라운드 실행/중지
-2. App: AvalonDock 레이아웃, AvalonEdit 하이라이트/자동완성(레지스트리 메타데이터), 변수창, 연산자 트리, OpenGL 뷰어(피라미드/타일 텍스처)
-3. Runtime: Job zip 입출력, 입출력 터미널 바인딩, C++/CLI 브리지
-4. 카메라 공통 인터페이스 + 벤더 플러그인, 2.5D 연산자군
+1. App: AvalonDock 레이아웃, AvalonEdit 하이라이트/자동완성(레지스트리 메타데이터), 변수창, 연산자 트리, OpenGL 뷰어(피라미드/타일 텍스처)
+2. Runtime: Job zip 입출력, 입출력 터미널 바인딩, C++/CLI 브리지
+3. 카메라 공통 인터페이스 + 벤더 플러그인, 2.5D 연산자군

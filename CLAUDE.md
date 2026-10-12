@@ -25,6 +25,7 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 | src/InspectionView.Runtime | net8.0; net48 | Job 패키지(zip) 입출력, 입출력 터미널, 검사 프로그램 연동 |
 | src/InspectionView.App | net8.0-windows WPF | IDE (AvalonDock, AvalonEdit, 이후 OpenTK GLWpfControl, Nodify) |
 | tests/InspectionView.Core.Tests | net8.0 xunit | Core 단위 테스트 |
+| tests/InspectionView.Script.Tests | net8.0 xunit | 렉서/파서/컴파일러/엔진 테스트 |
 
 ## 코딩 규칙
 - C# 12, nullable enable, ImplicitUsings 비활성 (net48 호환을 위해 using 명시).
@@ -36,6 +37,15 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 - 새 연산자: `[Operator("Name", Category=...)]` 클래스 + `[Input]`/`[Output]` 프로퍼티 + `[Backend(BackendKind.Cpu|Parallel|Gpu)] void Run(OperatorContext ctx)`. 입력 검증은 `Validate()` 에서 `VisionException(ErrorCode)` 로. 최소 Cpu 백엔드는 항상 제공.
 - OpenCV 우선. 병목이면 `Parallel.For`(ctx.CreateParallelOptions()) 또는 직접 구현 허용.
 - 예외 정책: 연산자는 `VisionException` 만 던진다. 런타임 API 는 `OperatorInvoker.Invoke` / `TryExecute` 로 에러 코드를 반환한다.
+
+## 스크립트 문법 (확정)
+- 대입 `Name = Expr` (`:=` 도 허용), 주석 `//`, 문자열 `'...'` 또는 `"..."`, 튜플 `[a, b]`, 인덱스 `T[i]`, 멤버 `Res.Area`
+- 호출 `Op(Arg, Name = Arg)`: 위치 인자 다음에 이름 인자. 출력 1개면 값, 여러 개면 결과 객체
+- `if / elseif / else / endif`, `for I = A to B by S ... endfor`, `while ... endwhile`, `break`, `continue`
+- 연산자: `+ - * / %`, `== != < <= > >=`, `and or not` (`&& || !` 도 허용). `/` 는 항상 실수 나눗셈
+- 값은 Tuple(숫자/문자열/불리언, 원소별 연산 + 브로드캐스트), 아이코닉 객체, 결과 객체
+- 내장 함수(PascalCase): Len, Abs, Sqrt, Round, Floor, Ceil, Int, Real, Str, Min, Max, Sum, Mean, Print, TypeOf
+- 실행 모델: AST → 평탄화된 명령 리스트(`Compilation/Instruction`) → PC 기반 인터프리터. 브레이크포인트/한 줄 실행/PC 이동은 `ScriptEngine` 이 담당
 
 ## 확정 요구사항 (요약)
 1. GPU 연산 (CPU/GPU 선택), 백엔드: 전역 설정 + 연산자별 오버라이드 (Auto 포함)
@@ -51,7 +61,7 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 
 ## 로드맵
 1. ~~1차 연산자 6개 (Cpu + Parallel) 와 테스트~~ (완료)
-2. Script 렉서/파서/인터프리터, 브레이크포인트, 백그라운드 실행/중지
+2. ~~Script 렉서/파서/인터프리터, 브레이크포인트, 백그라운드 실행/중지~~ (완료)
 3. App: 도킹 레이아웃, 에디터, 변수창, 연산자 트리, OpenGL 뷰어
 4. Runtime: Job zip, 터미널 바인딩, C++/CLI 브리지
 5. 카메라 플러그인, GPU 연산자, 2.5D

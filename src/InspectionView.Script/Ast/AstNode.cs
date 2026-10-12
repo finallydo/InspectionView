@@ -3,11 +3,19 @@ using System.Collections.Generic;
 namespace InspectionView.Script.Ast
 {
     // ---------------------------------------------------------------------
-    // 1차 문법 AST: 대입, 수식, 연산자 호출, if / for / while
-    // 파서와 인터프리터는 다음 단계에서 추가된다. 노드 UI 변환과 Job 저장도 이 AST 를 사용한다.
+    // 스크립트 AST. 파서가 만들고, 컴파일러(명령 리스트), 노드 UI 변환, Job 저장이 공유한다.
+    //
+    // 문법 요약 (1차):
+    //   Name = Expression                  대입 ( := 도 허용)
+    //   Op(Arg, Name = Arg)                연산자 호출문
+    //   if Cond ... elseif Cond ... else ... endif
+    //   for I = Start to End by Step ... endfor
+    //   while Cond ... endwhile
+    //   break / continue
+    //   // 주석
     // ---------------------------------------------------------------------
 
-    /// <summary>소스 위치 (브레이크포인트, 실행 줄 하이라이트, 오류 표시에 사용).</summary>
+    /// <summary>소스 위치 (1 기반 줄/열). 브레이크포인트, 실행 줄 하이라이트, 오류 표시에 사용.</summary>
     public readonly struct SourceSpan
     {
         public int Line { get; }
@@ -27,6 +35,7 @@ namespace InspectionView.Script.Ast
     public abstract class AstNode
     {
         public SourceSpan Span { get; set; }
+        public int Line => Span.Line;
     }
 
     // ---- 식 ----
@@ -35,7 +44,7 @@ namespace InspectionView.Script.Ast
     {
     }
 
-    /// <summary>리터럴: 정수, 실수, 문자열, 불리언.</summary>
+    /// <summary>리터럴: long, double, string, bool.</summary>
     public sealed class LiteralExpression : Expression
     {
         public object Value { get; }
@@ -94,17 +103,17 @@ namespace InspectionView.Script.Ast
         }
     }
 
-    /// <summary>연산자 호출: ReadImage('a.png'), Threshold(Image, 128, 255)</summary>
+    /// <summary>연산자/내장 함수 호출: ReadImage('a.png'), Threshold(Image, MinGray = 100, MaxGray = 255)</summary>
     public sealed class CallExpression : Expression
     {
-        public string OperatorName { get; }
+        public string Name { get; }
         public List<Expression> Arguments { get; } = new List<Expression>();
-        public Dictionary<string, Expression> NamedArguments { get; } = new Dictionary<string, Expression>();
+        public List<KeyValuePair<string, Expression>> NamedArguments { get; } = new List<KeyValuePair<string, Expression>>();
 
-        public CallExpression(string operatorName) => OperatorName = operatorName;
+        public CallExpression(string name) => Name = name;
     }
 
-    /// <summary>결과 객체 멤버 접근: Res.Area</summary>
+    /// <summary>멤버 접근: Res.Area, Image.Width</summary>
     public sealed class MemberExpression : Expression
     {
         public Expression Target { get; }
@@ -161,11 +170,31 @@ namespace InspectionView.Script.Ast
         public List<Statement> Statements { get; } = new List<Statement>();
     }
 
+    public sealed class ElseIfClause
+    {
+        public SourceSpan Span { get; set; }
+        public Expression Condition { get; }
+        public BlockStatement Body { get; }
+
+        public ElseIfClause(Expression condition, BlockStatement body)
+        {
+            Condition = condition;
+            Body = body;
+        }
+    }
+
     public sealed class IfStatement : Statement
     {
         public Expression Condition { get; }
         public BlockStatement Then { get; }
+        public List<ElseIfClause> ElseIfs { get; } = new List<ElseIfClause>();
         public BlockStatement? Else { get; set; }
+
+        /// <summary>'else' 키워드 위치 (있을 때).</summary>
+        public SourceSpan ElseSpan { get; set; }
+
+        /// <summary>'endif' 키워드 위치.</summary>
+        public SourceSpan EndSpan { get; set; }
 
         public IfStatement(Expression condition, BlockStatement then)
         {
@@ -174,7 +203,7 @@ namespace InspectionView.Script.Ast
         }
     }
 
-    /// <summary>for Index := Start to End by Step</summary>
+    /// <summary>for Index = Start to End by Step ... endfor (End 와 Step 은 루프 시작 시 한 번 평가)</summary>
     public sealed class ForStatement : Statement
     {
         public string Variable { get; }
@@ -182,6 +211,7 @@ namespace InspectionView.Script.Ast
         public Expression End { get; }
         public Expression? Step { get; set; }
         public BlockStatement Body { get; }
+        public SourceSpan EndSpan { get; set; }
 
         public ForStatement(string variable, Expression start, Expression end, BlockStatement body)
         {
@@ -196,6 +226,7 @@ namespace InspectionView.Script.Ast
     {
         public Expression Condition { get; }
         public BlockStatement Body { get; }
+        public SourceSpan EndSpan { get; set; }
 
         public WhileStatement(Expression condition, BlockStatement body)
         {

@@ -25,6 +25,9 @@ jobs:
       - name: Test Core
         run: dotnet test tests/InspectionView.Core.Tests/InspectionView.Core.Tests.csproj -c Release -p:Platform=x64 --no-build --logger "trx;LogFileName=core.trx" --results-directory TestResults
 
+      - name: Test Script
+        run: dotnet test tests/InspectionView.Script.Tests/InspectionView.Script.Tests.csproj -c Release -p:Platform=x64 --no-build --logger "trx;LogFileName=script.trx" --results-directory TestResults
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
