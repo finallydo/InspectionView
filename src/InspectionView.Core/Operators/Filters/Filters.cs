@@ -10,17 +10,17 @@ using ErrorCode = InspectionView.Core.Errors.ErrorCode;
 namespace InspectionView.Core.Operators.Filters
 {
     [Operator("GaussFilter", Category = "Filters", Description = "Gaussian smoothing with the given sigma (kernel size derived from sigma).")]
-    public sealed class GaussFilter : ImageToImageOperator
+    public sealed class GaussFilter : GpuFilterOperator
     {
         [Input(Description = "Standard deviation in pixels.", Default = 1.0, Min = 0.1, Order = 1)]
         public double Sigma { get; set; }
 
-        protected override Image Process(Image source, OperatorContext ctx)
-            => ImageOps.Filter(source, (s, d) => Cv2.GaussianBlur(s, d, new Size(0, 0), Sigma, Sigma, BorderTypes.Reflect101));
+        protected override void Apply(InputArray src, OutputArray dst, Image source)
+            => Cv2.GaussianBlur(src, dst, new Size(0, 0), Sigma, Sigma, BorderTypes.Reflect101);
     }
 
     [Operator("MeanFilter", Category = "Filters", Description = "Box (mean) filter with a Width x Height window.")]
-    public sealed class MeanFilter : ImageToImageOperator
+    public sealed class MeanFilter : GpuFilterOperator
     {
         [Input(Description = "Window width.", Default = 3, Min = 1, Order = 1)]
         public int Width { get; set; }
@@ -28,12 +28,12 @@ namespace InspectionView.Core.Operators.Filters
         [Input(Description = "Window height.", Default = 3, Min = 1, Order = 2)]
         public int Height { get; set; }
 
-        protected override Image Process(Image source, OperatorContext ctx)
-            => ImageOps.Filter(source, (s, d) => Cv2.Blur(s, d, new Size(Width, Height), null, BorderTypes.Reflect101));
+        protected override void Apply(InputArray src, OutputArray dst, Image source)
+            => Cv2.Blur(src, dst, new Size(Width, Height), null, BorderTypes.Reflect101);
     }
 
     [Operator("MedianFilter", Category = "Filters", Description = "Median filter with a square window of odd size (8-bit: any size, others: 3 or 5).")]
-    public sealed class MedianFilter : ImageToImageOperator
+    public sealed class MedianFilter : GpuFilterOperator
     {
         [Input(Description = "Window size (odd).", Default = 3, Min = 1, Order = 1)]
         public int Size { get; set; }
@@ -47,8 +47,8 @@ namespace InspectionView.Core.Operators.Filters
                 throw new VisionException(ErrorCode.UnsupportedFormat, $"MedianFilter does not support {Image.PixelType}.");
         }
 
-        protected override Image Process(Image source, OperatorContext ctx)
-            => ImageOps.Filter(source, (s, d) => Cv2.MedianBlur(s, d, Size));
+        protected override void Apply(InputArray src, OutputArray dst, Image source)
+            => Cv2.MedianBlur(src, dst, Size);
     }
 
     public enum SobelMode
@@ -142,7 +142,7 @@ namespace InspectionView.Core.Operators.Filters
     }
 
     [Operator("ScaleImage", Category = "Filters", Description = "Linear gray value transform: result = image * Mult + Add (saturated to the image type).")]
-    public sealed class ScaleImage : ImageToImageOperator
+    public sealed class ScaleImage : GpuFilterOperator
     {
         [Input(Description = "Multiplier.", Default = 1.0, Order = 1)]
         public double Mult { get; set; }
@@ -150,17 +150,18 @@ namespace InspectionView.Core.Operators.Filters
         [Input(Description = "Offset.", Default = 0.0, Order = 2)]
         public double Add { get; set; }
 
-        protected override Image Process(Image source, OperatorContext ctx)
-            => ImageOps.Filter(source, (s, d) => s.ConvertTo(d, d.Type(), Mult, Add));
+        // src * Mult + Add (타입 포화) — AddWeighted 는 InputArray 기반이라 Mat/UMat 양쪽에 쓸 수 있다
+        protected override void Apply(InputArray src, OutputArray dst, Image source)
+            => Cv2.AddWeighted(src, Mult, src, 0.0, Add, dst);
     }
 
     [Operator("InvertImage", Category = "Filters", Description = "Inverts gray values (max - value for integer types, -value for float).")]
-    public sealed class InvertImage : ImageToImageOperator
+    public sealed class InvertImage : GpuFilterOperator
     {
-        protected override Image Process(Image source, OperatorContext ctx)
+        protected override void Apply(InputArray src, OutputArray dst, Image source)
         {
             double max = source.PixelType.IsFloatingPoint() ? 0 : source.PixelType.ValueRange().Max;
-            return ImageOps.Filter(source, (s, d) => s.ConvertTo(d, d.Type(), -1.0, max));
+            Cv2.AddWeighted(src, -1.0, src, 0.0, max, dst);
         }
     }
 
@@ -175,7 +176,7 @@ namespace InspectionView.Core.Operators.Filters
     }
 
     [Operator("Rgb1ToGray", Category = "Filters", Description = "Converts a 3- or 4-channel (BGR) image to gray with the standard luminance weights.")]
-    public sealed class Rgb1ToGray : ImageToImageOperator
+    public sealed class Rgb1ToGray : GpuFilterOperator
     {
         protected override void ValidateParameters()
         {
@@ -183,11 +184,10 @@ namespace InspectionView.Core.Operators.Filters
                 throw new VisionException(ErrorCode.TypeMismatch, $"Rgb1ToGray needs a 3- or 4-channel image (got {Image.Channels}).");
         }
 
-        protected override Image Process(Image source, OperatorContext ctx)
-        {
-            var code = source.Channels == 3 ? ColorConversionCodes.BGR2GRAY : ColorConversionCodes.BGRA2GRAY;
-            return ImageOps.Filter(source, (s, d) => Cv2.CvtColor(s, d, code), null, 1);
-        }
+        protected override int? OutputChannels(Image source) => 1;
+
+        protected override void Apply(InputArray src, OutputArray dst, Image source)
+            => Cv2.CvtColor(src, dst, source.Channels == 3 ? ColorConversionCodes.BGR2GRAY : ColorConversionCodes.BGRA2GRAY);
     }
 
     [Operator("Decompose3", Category = "Filters", Description = "Splits a 3-channel image into its channels (Image1 = B, Image2 = G, Image3 = R for files read by ReadImage).")]

@@ -138,5 +138,9 @@ CloseFramegrabber(Cam)
 IDE 의 Camera 창에서 공급자/장치를 골라 열고 Snap(변수로) / Live(활성 그래픽 창) / 파라미터 편집, Bind 로 스크립트 변수(`Cam`)에 연결할 수 있다.
 벤더 SDK 는 빌드 시 자동 탐색된다 (msbuild 출력의 `InspectionView.Cameras.*: SDK true/false` 로 확인). 다른 경로면 `-p:IVPylonAssembly=...`, `-p:IVSpinnakerAssembly=...`, `-p:IVMvsAssembly=...`.
 
+## GPU
+- OpenCL (Intel/AMD/NVIDIA 공통): OpenCL 런타임이 있으면 자동 탐지되어 상태 표시줄에 `GPU: OpenCL: <디바이스>` 로 표시되고, 백엔드를 Auto/Gpu 로 두면 필터·산술·그레이 모폴로지 연산자가 OpenCV T-API(UMat) 로 GPU 에서 실행된다. 타이밍 창의 Backend 열이 실제 사용 백엔드다.
+- CUDA: `InspectionView.Native` 를 `IVN_WITH_CUDA` 로 빌드하면 디바이스 메모리 경로가 활성화된다 (커널은 아직 없음).
+
 ## 다음 단계
-1. GPU 연산자, 노드 UI(Nodify), AutoFocus, 위상 언래핑
+1. 노드 UI(Nodify), AutoFocus, 위상 언래핑, CUDA 커널

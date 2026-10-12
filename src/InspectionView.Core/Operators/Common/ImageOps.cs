@@ -77,6 +77,66 @@ namespace InspectionView.Core.Operators.Common
             return KeepDomain(dst, a);
         }
 
+        /// <summary>
+        /// GPU(OpenCL T-API) 변형: 입력을 UMat 으로 올려 연산하고 결과를 내려받는다. OpenCL 디바이스가 없으면 OpenCV 가 CPU 로 수행한다.
+        /// <paramref name="op"/> 는 InputArray/OutputArray 만 쓰는 OpenCV 호출이어야 한다.
+        /// </summary>
+        public static Image FilterGpu(Image src, Action<InputArray, OutputArray> op, PixelType? outType = null, int? outChannels = null)
+        {
+            var dst = NewLike(src, outType, outChannels);
+            try
+            {
+                using (var s = MatInterop.AsMat(src))
+                using (var us = s.GetUMat(AccessFlag.READ))
+                using (var ud = new UMat(src.Height, src.Width, MatInterop.ToMatType(dst.PixelType, dst.Channels)))
+                using (var d = MatInterop.AsMat(dst, forWrite: true))
+                {
+                    op(InputArray.Create(us), OutputArray.Create(ud));
+                    ud.CopyTo(d);
+                    if (d.Data != dst.GetHostPointer())
+                        throw new VisionException(ErrorCode.BackendExecutionFailed, "OpenCV reallocated the output buffer (size/type mismatch).");
+                }
+            }
+            catch
+            {
+                dst.Release();
+                throw;
+            }
+            return KeepDomain(dst, src);
+        }
+
+        /// <summary>두 입력의 GPU(OpenCL T-API) 변형.</summary>
+        public static Image BinaryGpu(Image a, Image b, Action<InputArray, InputArray, OutputArray> op, PixelType? outType = null, int? outChannels = null)
+        {
+            if (a.Width != b.Width || a.Height != b.Height)
+                throw new VisionException(ErrorCode.SizeMismatch, $"Images differ in size ({a.Width}x{a.Height} vs {b.Width}x{b.Height}).");
+            if (a.Channels != b.Channels)
+                throw new VisionException(ErrorCode.SizeMismatch, $"Images differ in channel count ({a.Channels} vs {b.Channels}).");
+
+            var dst = NewLike(a, outType, outChannels);
+            try
+            {
+                using (var ma = MatInterop.AsMat(a))
+                using (var mb = MatInterop.AsMat(b))
+                using (var ua = ma.GetUMat(AccessFlag.READ))
+                using (var ub = mb.GetUMat(AccessFlag.READ))
+                using (var ud = new UMat(a.Height, a.Width, MatInterop.ToMatType(dst.PixelType, dst.Channels)))
+                using (var d = MatInterop.AsMat(dst, forWrite: true))
+                {
+                    op(InputArray.Create(ua), InputArray.Create(ub), OutputArray.Create(ud));
+                    ud.CopyTo(d);
+                    if (d.Data != dst.GetHostPointer())
+                        throw new VisionException(ErrorCode.BackendExecutionFailed, "OpenCV reallocated the output buffer (size/type mismatch).");
+                }
+            }
+            catch
+            {
+                dst.Release();
+                throw;
+            }
+            return KeepDomain(dst, a);
+        }
+
         /// <summary>이미지 좌표계의 마스크(CV_8UC1). region 이 null 이면 이미지 Domain, 둘 다 없으면 null(전체).</summary>
         public static Mat? MaskFor(Image image, Region? region)
         {

@@ -27,8 +27,22 @@ namespace InspectionView.Core.Backends
         /// <summary>GPU 할당기. null 이면 GPU 백엔드는 선택되지 않는다.</summary>
         public IDeviceAllocator? Gpu { get; set; }
 
-        /// <summary>GPU 사용 가능 여부.</summary>
-        public bool IsGpuAvailable => Gpu != null && Gpu.IsAvailable;
+        /// <summary>OpenCL(OpenCV T-API/UMat) GPU 백엔드 허용 여부. Intel/AMD 내장 GPU 도 사용한다.</summary>
+        public bool UseOpenCl { get; set; } = true;
+
+        /// <summary>GPU 사용 가능 여부 (CUDA 할당기 또는 OpenCL 디바이스).</summary>
+        public bool IsGpuAvailable => (Gpu != null && Gpu.IsAvailable) || (UseOpenCl && OpenClRuntime.IsAvailable);
+
+        /// <summary>표시용 GPU 설명 (예: "OpenCL: Intel(R) UHD Graphics 630").</summary>
+        public string GpuDescription
+        {
+            get
+            {
+                if (Gpu != null && Gpu.IsAvailable) return Gpu.Name;
+                if (UseOpenCl && OpenClRuntime.IsAvailable) return "OpenCL: " + OpenClRuntime.DeviceName;
+                return "not available";
+            }
+        }
 
         /// <summary>Parallel 백엔드 허용 여부 (스레드가 2개 이상일 때).</summary>
         public bool IsParallelAvailable => ParallelDegree > 1;

@@ -126,7 +126,7 @@ namespace InspectionView.Core.Operators.Morphology
     }
 
     /// <summary>그레이 모폴로지 (이미지, 사각형 구조 요소).</summary>
-    public abstract class GrayRectMorphology : ImageToImageOperator
+    public abstract class GrayRectMorphology : GpuFilterOperator
     {
         [Input(Description = "Mask width.", Default = 3, Min = 1, Order = 1)]
         public int Width { get; set; }
@@ -136,13 +136,10 @@ namespace InspectionView.Core.Operators.Morphology
 
         protected abstract MorphTypes Op { get; }
 
-        protected override Image Process(Image source, OperatorContext ctx)
+        protected override void Apply(InputArray src, OutputArray dst, Image source)
         {
             using (var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(Width, Height)))
-            {
-                var k = kernel;
-                return ImageOps.Filter(source, (s, d) => Cv2.MorphologyEx(s, d, Op, k, null, 1, BorderTypes.Replicate));
-            }
+                Cv2.MorphologyEx(src, dst, Op, kernel, null, 1, BorderTypes.Replicate);
         }
     }
 

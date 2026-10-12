@@ -242,7 +242,7 @@ namespace InspectionView.App.ViewModels
             }
         }
 
-        public string GpuText => GpuRuntime.IsAvailable ? $"GPU: {GpuRuntime.DefaultAllocator?.Name}" : "GPU: not available";
+        public string GpuText => "GPU: " + BackendSettings.Global.GpuDescription;
 
         public VariableItem? SelectedVariable
         {

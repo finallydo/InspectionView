@@ -14,6 +14,8 @@ namespace InspectionView.App
 
             // GPU 가 있으면 전역 설정에 연결 (없으면 CPU/Parallel 만 사용)
             BackendSettings.Global.Gpu = GpuRuntime.DefaultAllocator;
+            // OpenCL(Intel/AMD/NVIDIA) 은 OpenCV T-API 로 사용. 바인딩이 있으면 명시적으로 켠다.
+            OpenClRuntime.EnableInOpenCv();
 
             // Plugins 폴더의 연산자 DLL 로드
             var pluginDir = Path.Combine(AppContext.BaseDirectory, "Plugins");
