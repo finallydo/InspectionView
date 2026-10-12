@@ -23,7 +23,7 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 | src/InspectionView.Native | C++ DLL (x64) | GPU 백엔드 (CUDA 옵션, `IVN_WITH_CUDA`). C API 는 `include/ivnative.h`, C# 선언은 `Core/Backends/GpuRuntime.cs` 와 일치 유지 |
 | src/InspectionView.Script | net8.0; net48 | 스크립트 AST / 파서 / 인터프리터 |
 | src/InspectionView.Runtime | net8.0; net48 | Job 패키지(zip) 입출력, 입출력 터미널, 검사 프로그램 연동 |
-| src/InspectionView.App | net8.0-windows WPF | IDE (AvalonDock, AvalonEdit, 이후 OpenTK GLWpfControl, Nodify) |
+| src/InspectionView.App | net8.0-windows WPF | IDE: `MainViewModel`(엔진 소유, 이벤트를 UI 타이머로 모아 반영), `Editor/`(하이라이트, 브레이크포인트 여백, 실행 줄/오류 렌더러, 자동완성), AvalonDock 레이아웃. 이후 OpenTK GLWpfControl, Nodify |
 | tests/InspectionView.Core.Tests | net8.0 xunit | Core 단위 테스트 |
 | tests/InspectionView.Script.Tests | net8.0 xunit | 렉서/파서/컴파일러/엔진 테스트 |
 
@@ -36,6 +36,7 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 - Region 은 불변. 마스크는 `ToMask()` 캐시를 쓰고 반환 Mat 을 수정/Dispose 하지 않는다.
 - 새 연산자: `[Operator("Name", Category=...)]` 클래스 + `[Input]`/`[Output]` 프로퍼티 + `[Backend(BackendKind.Cpu|Parallel|Gpu)] void Run(OperatorContext ctx)`. 입력 검증은 `Validate()` 에서 `VisionException(ErrorCode)` 로. 최소 Cpu 백엔드는 항상 제공.
 - OpenCV 우선. 병목이면 `Parallel.For`(ctx.CreateParallelOptions()) 또는 직접 구현 허용.
+- WPF: 엔진 이벤트는 실행 스레드에서 오므로 뷰모델은 변경을 모아 두고 100ms DispatcherTimer(`MainViewModel.Tick`)에서 반영한다. UI 코드에서 아이코닉 객체를 AddRef/Release 하지 않는다 (VariableTable 소유).
 - 예외 정책: 연산자는 `VisionException` 만 던진다. 런타임 API 는 `OperatorInvoker.Invoke` / `TryExecute` 로 에러 코드를 반환한다.
 
 ## 스크립트 문법 (확정)
@@ -62,6 +63,6 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 ## 로드맵
 1. ~~1차 연산자 6개 (Cpu + Parallel) 와 테스트~~ (완료)
 2. ~~Script 렉서/파서/인터프리터, 브레이크포인트, 백그라운드 실행/중지~~ (완료)
-3. App: 도킹 레이아웃, 에디터, 변수창, 연산자 트리, OpenGL 뷰어
+3. App: ~~도킹 레이아웃, 에디터, 변수창, 연산자 트리~~ (완료) → OpenGL 뷰어(피라미드/타일, 오버레이, ROI)
 4. Runtime: Job zip, 터미널 바인딩, C++/CLI 브리지
 5. 카메라 플러그인, GPU 연산자, 2.5D

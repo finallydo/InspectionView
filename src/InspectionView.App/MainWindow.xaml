@@ -1,21 +1,202 @@
 <Window x:Class="InspectionView.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="InspectionView" Height="720" Width="1200">
+        xmlns:ad="https://github.com/Dirkster99/AvalonDock"
+        xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
+        xmlns:vm="clr-namespace:InspectionView.App.ViewModels"
+        x:Name="Root"
+        Title="{Binding Title}" Height="860" Width="1400"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding RunCommand, ElementName=Root}" />
+        <KeyBinding Key="F6" Command="{Binding StepCommand, ElementName=Root}" />
+        <KeyBinding Key="F5" Modifiers="Shift" Command="{Binding StopCommand, ElementName=Root}" />
+        <KeyBinding Key="F9" Command="{Binding ToggleBreakpointCommand, ElementName=Root}" />
+        <KeyBinding Key="F2" Command="{Binding ResetCommand, ElementName=Root}" />
+        <KeyBinding Key="N" Modifiers="Control" Command="{Binding NewCommand, ElementName=Root}" />
+        <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenCommand, ElementName=Root}" />
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveCommand, ElementName=Root}" />
+        <KeyBinding Key="S" Modifiers="Control+Shift" Command="{Binding SaveAsCommand, ElementName=Root}" />
+    </Window.InputBindings>
+
     <DockPanel>
+        <!-- 메뉴 -->
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
-                <MenuItem Header="E_xit" Click="OnExit"/>
+                <MenuItem Header="_New" InputGestureText="Ctrl+N" Command="{Binding NewCommand, ElementName=Root}" />
+                <MenuItem Header="_Open..." InputGestureText="Ctrl+O" Command="{Binding OpenCommand, ElementName=Root}" />
+                <MenuItem Header="_Save" InputGestureText="Ctrl+S" Command="{Binding SaveCommand, ElementName=Root}" />
+                <MenuItem Header="Save _As..." InputGestureText="Ctrl+Shift+S" Command="{Binding SaveAsCommand, ElementName=Root}" />
+                <Separator />
+                <MenuItem Header="E_xit" Click="OnExit" />
+            </MenuItem>
+            <MenuItem Header="_Run">
+                <MenuItem Header="_Run" InputGestureText="F5" Command="{Binding RunCommand, ElementName=Root}" />
+                <MenuItem Header="_Step" InputGestureText="F6" Command="{Binding StepCommand, ElementName=Root}" />
+                <MenuItem Header="S_top" InputGestureText="Shift+F5" Command="{Binding StopCommand, ElementName=Root}" />
+                <MenuItem Header="R_eset" InputGestureText="F2" Command="{Binding ResetCommand, ElementName=Root}" />
+                <Separator />
+                <MenuItem Header="Toggle _Breakpoint" InputGestureText="F9" Command="{Binding ToggleBreakpointCommand, ElementName=Root}" />
+                <MenuItem Header="Set _Next Statement" Command="{Binding SetNextStatementCommand, ElementName=Root}" />
+                <MenuItem Header="Clear All Breakpoints" Click="OnClearBreakpoints" />
+                <Separator />
+                <MenuItem Header="Clear _Variables" Click="OnClearVariables" />
+                <MenuItem Header="Fast Mode (no display update)" IsCheckable="True" IsChecked="{Binding FastMode}" />
             </MenuItem>
         </Menu>
+
+        <!-- 툴바 -->
+        <ToolBarTray DockPanel.Dock="Top">
+            <ToolBar>
+                <Button Command="{Binding NewCommand, ElementName=Root}" ToolTip="New (Ctrl+N)">New</Button>
+                <Button Command="{Binding OpenCommand, ElementName=Root}" ToolTip="Open (Ctrl+O)">Open</Button>
+                <Button Command="{Binding SaveCommand, ElementName=Root}" ToolTip="Save (Ctrl+S)">Save</Button>
+                <Separator />
+                <Button Command="{Binding RunCommand, ElementName=Root}" ToolTip="Run (F5)" FontWeight="Bold" Foreground="DarkGreen">▶ Run</Button>
+                <Button Command="{Binding StepCommand, ElementName=Root}" ToolTip="Step (F6)">⤵ Step</Button>
+                <Button Command="{Binding StopCommand, ElementName=Root}" ToolTip="Stop (Shift+F5)" Foreground="DarkRed">■ Stop</Button>
+                <Button Command="{Binding ResetCommand, ElementName=Root}" ToolTip="Reset to first line (F2)">⟲ Reset</Button>
+                <Separator />
+                <TextBlock VerticalAlignment="Center" Margin="4,0">Backend:</TextBlock>
+                <ComboBox Width="90" ItemsSource="{Binding Backends}" SelectedItem="{Binding Backend}" />
+                <CheckBox VerticalAlignment="Center" Margin="8,0" IsChecked="{Binding FastMode}" ToolTip="Skip line / variable updates and profiling while running">Fast mode</CheckBox>
+            </ToolBar>
+        </ToolBarTray>
+
+        <!-- 상태바 -->
         <StatusBar DockPanel.Dock="Bottom">
             <StatusBarItem>
-                <TextBlock x:Name="StatusText" Text="Ready"/>
+                <TextBlock Text="{Binding StateText}" FontWeight="Bold" MinWidth="70" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock x:Name="CaretText" Text="Ln 1, Col 1" MinWidth="90" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusText}" />
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock Text="{Binding GpuText}" Margin="0,0,8,0" />
             </StatusBarItem>
         </StatusBar>
-        <!-- TODO: AvalonDock 레이아웃 (에디터 / 뷰어 / 변수창 / 연산자 트리) -->
-        <Grid>
-            <TextBlock x:Name="OperatorList" Margin="12" FontFamily="Consolas" />
-        </Grid>
+
+        <!-- 도킹 레이아웃 -->
+        <ad:DockingManager x:Name="Dock">
+            <ad:LayoutRoot>
+                <ad:LayoutPanel Orientation="Vertical">
+                    <ad:LayoutPanel Orientation="Horizontal">
+
+                        <!-- 왼쪽: 연산자 트리 -->
+                        <ad:LayoutAnchorablePane DockWidth="250">
+                            <ad:LayoutAnchorable Title="Operators" ContentId="operators" CanClose="False" CanHide="False">
+                                <TreeView x:Name="OperatorTreeView" ItemsSource="{Binding OperatorTree}"
+                                          MouseDoubleClick="OnOperatorDoubleClick" BorderThickness="0">
+                                    <TreeView.ItemTemplate>
+                                        <HierarchicalDataTemplate DataType="{x:Type vm:OperatorNode}" ItemsSource="{Binding Children}">
+                                            <TextBlock Text="{Binding Name}" ToolTip="{Binding ToolTip}" />
+                                        </HierarchicalDataTemplate>
+                                    </TreeView.ItemTemplate>
+                                    <TreeView.ItemContainerStyle>
+                                        <Style TargetType="TreeViewItem">
+                                            <Setter Property="IsExpanded" Value="True" />
+                                        </Style>
+                                    </TreeView.ItemContainerStyle>
+                                </TreeView>
+                            </ad:LayoutAnchorable>
+                        </ad:LayoutAnchorablePane>
+
+                        <!-- 가운데: 에디터 -->
+                        <ad:LayoutDocumentPane>
+                            <ad:LayoutDocument Title="Script" ContentId="script" CanClose="False">
+                                <avalonedit:TextEditor x:Name="Editor"
+                                                       FontFamily="Consolas" FontSize="13"
+                                                       ShowLineNumbers="True"
+                                                       HorizontalScrollBarVisibility="Auto"
+                                                       VerticalScrollBarVisibility="Auto">
+                                    <avalonedit:TextEditor.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Run (F5)" Command="{Binding RunCommand, ElementName=Root}" />
+                                            <MenuItem Header="Step (F6)" Command="{Binding StepCommand, ElementName=Root}" />
+                                            <MenuItem Header="Toggle Breakpoint (F9)" Command="{Binding ToggleBreakpointCommand, ElementName=Root}" />
+                                            <MenuItem Header="Set Next Statement" Command="{Binding SetNextStatementCommand, ElementName=Root}" />
+                                            <Separator />
+                                            <MenuItem Header="Cut" Command="ApplicationCommands.Cut" />
+                                            <MenuItem Header="Copy" Command="ApplicationCommands.Copy" />
+                                            <MenuItem Header="Paste" Command="ApplicationCommands.Paste" />
+                                        </ContextMenu>
+                                    </avalonedit:TextEditor.ContextMenu>
+                                </avalonedit:TextEditor>
+                            </ad:LayoutDocument>
+                        </ad:LayoutDocumentPane>
+
+                        <!-- 오른쪽: 변수창 + 미리보기 -->
+                        <ad:LayoutPanel Orientation="Vertical" DockWidth="380">
+                            <ad:LayoutAnchorablePane DockHeight="300">
+                                <ad:LayoutAnchorable Title="Variables" ContentId="variables" CanClose="False" CanHide="False">
+                                    <ListView ItemsSource="{Binding Variables}" SelectedItem="{Binding SelectedVariable}" BorderThickness="0">
+                                        <ListView.View>
+                                            <GridView>
+                                                <GridViewColumn Header="Name" Width="110" DisplayMemberBinding="{Binding Name}" />
+                                                <GridViewColumn Header="Type" Width="90" DisplayMemberBinding="{Binding Type}" />
+                                                <GridViewColumn Header="Value" Width="400" DisplayMemberBinding="{Binding Value}" />
+                                            </GridView>
+                                        </ListView.View>
+                                    </ListView>
+                                </ad:LayoutAnchorable>
+                            </ad:LayoutAnchorablePane>
+                            <ad:LayoutAnchorablePane>
+                                <ad:LayoutAnchorable Title="Preview" ContentId="preview" CanClose="False" CanHide="False">
+                                    <Border Background="#FF303030">
+                                        <Image Source="{Binding Preview}" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor" Margin="4" />
+                                    </Border>
+                                </ad:LayoutAnchorable>
+                            </ad:LayoutAnchorablePane>
+                        </ad:LayoutPanel>
+                    </ad:LayoutPanel>
+
+                    <!-- 아래: 출력 / 오류 / 프로파일 -->
+                    <ad:LayoutAnchorablePane DockHeight="200">
+                        <ad:LayoutAnchorable Title="Output" ContentId="output" CanClose="False" CanHide="False">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Top" HorizontalAlignment="Right" Padding="8,1" Margin="2" Click="OnClearOutput">Clear</Button>
+                                <TextBox Text="{Binding OutputText, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas"
+                                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" BorderThickness="0"
+                                         TextChanged="OnOutputChanged" />
+                            </DockPanel>
+                        </ad:LayoutAnchorable>
+                        <ad:LayoutAnchorable Title="Errors" ContentId="errors" CanClose="False" CanHide="False">
+                            <ListView ItemsSource="{Binding Diagnostics}" MouseDoubleClick="OnDiagnosticDoubleClick" BorderThickness="0">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Kind" Width="70" DisplayMemberBinding="{Binding Severity}" />
+                                        <GridViewColumn Header="Line" Width="50" DisplayMemberBinding="{Binding Line}" />
+                                        <GridViewColumn Header="Col" Width="40" DisplayMemberBinding="{Binding Column}" />
+                                        <GridViewColumn Header="Message" Width="900" DisplayMemberBinding="{Binding Message}" />
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </ad:LayoutAnchorable>
+                        <ad:LayoutAnchorable Title="Profile" ContentId="profile" CanClose="False" CanHide="False">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Top" HorizontalAlignment="Right" Padding="8,1" Margin="2" Click="OnClearProfile">Clear</Button>
+                                <ListView ItemsSource="{Binding Profile}" BorderThickness="0">
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Header="#" Width="40" DisplayMemberBinding="{Binding Index}" />
+                                            <GridViewColumn Header="Operator" Width="140" DisplayMemberBinding="{Binding Operator}" />
+                                            <GridViewColumn Header="Backend" Width="160" DisplayMemberBinding="{Binding Backend}" />
+                                            <GridViewColumn Header="Time (ms)" Width="90" DisplayMemberBinding="{Binding Milliseconds, StringFormat={}{0:F3}}" />
+                                            <GridViewColumn Header="Result" Width="120" DisplayMemberBinding="{Binding Result}" />
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                            </DockPanel>
+                        </ad:LayoutAnchorable>
+                    </ad:LayoutAnchorablePane>
+                </ad:LayoutPanel>
+            </ad:LayoutRoot>
+        </ad:DockingManager>
     </DockPanel>
 </Window>
