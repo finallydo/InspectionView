@@ -5,6 +5,9 @@ using InspectionView.Core.Errors;
 using InspectionView.Core.Types;
 #if IV_HAS_PYLON
 using Basler.Pylon;
+// Basler.Pylon 에도 ICamera / PixelType 이 있어 이름이 겹친다 → 우리 쪽 타입을 명시
+using ICamera = InspectionView.Core.Cameras.ICamera;
+using PixelType = InspectionView.Core.Types.PixelType;
 #endif
 
 namespace InspectionView.Cameras.Pylon

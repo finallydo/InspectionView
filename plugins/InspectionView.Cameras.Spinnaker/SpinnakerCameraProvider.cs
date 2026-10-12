@@ -29,7 +29,8 @@ namespace InspectionView.Cameras.Spinnaker
         public IReadOnlyList<CameraInfo> Enumerate()
         {
             var list = new List<CameraInfo>();
-            using (var cams = System.GetCameras())
+            var cams = System.GetCameras();
+            try
             {
                 foreach (IManagedCamera cam in cams)
                 {
@@ -41,6 +42,10 @@ namespace InspectionView.Cameras.Spinnaker
                         list.Add(new CameraInfo(ProviderName, serial, model, serial));
                     }
                 }
+            }
+            finally
+            {
+                cams.Clear();
             }
             return list;
         }
@@ -139,7 +144,7 @@ namespace InspectionView.Cameras.Spinnaker
         private void RegisterNode(string name, CameraParameterType type, string description)
         {
             INode node;
-            try { node = _nodes.GetNode(name); } catch { return; }
+            try { node = _nodes.GetNode<INode>(name); } catch { return; }
             if (node == null || !node.IsImplemented) return;
             double min = double.NaN, max = double.NaN;
             string[]? choices = null;
@@ -175,7 +180,7 @@ namespace InspectionView.Cameras.Spinnaker
 
         private object? ReadNode(string name)
         {
-            var node = _nodes.GetNode(name);
+            var node = _nodes.GetNode<INode>(name);
             switch (node)
             {
                 case IInteger i: return i.Value;
@@ -190,7 +195,7 @@ namespace InspectionView.Cameras.Spinnaker
 
         private void WriteNode(string name, object? value)
         {
-            var node = _nodes.GetNode(name);
+            var node = _nodes.GetNode<INode>(name);
             var ci = System.Globalization.CultureInfo.InvariantCulture;
             string str = Convert.ToString(value, ci) ?? "";
             switch (node)
