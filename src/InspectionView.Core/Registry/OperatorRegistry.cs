@@ -136,6 +136,8 @@ namespace InspectionView.Core.Registry
                 {
                     var asm = LoadAssembly(Path.GetFullPath(file));
                     var added = RegisterAssembly(asm, isPlugin: true);
+                    try { Cameras.CameraRegistry.Default.ScanAssembly(asm); }
+                    catch (Exception ex) { result.Failures.Add((file, new VisionException(ErrorCode.PluginLoadFailed, $"Camera provider scan failed for '{file}': {ex.Message}", ex))); }
                     result.LoadedAssemblies.Add(file);
                     if (added > 0)
                         result.Operators.AddRange(_operators.Values.Where(d => d.OperatorType.Assembly == asm));

@@ -39,6 +39,15 @@ namespace InspectionView.Core.Errors
         DeviceError = 5000,
         DeviceNotAvailable = 5001,
 
+        // 카메라
+        CameraProviderNotFound = 5100,
+        CameraNotFound = 5101,
+        CameraOpenFailed = 5102,
+        CameraTimeout = 5103,
+        CameraParameterInvalid = 5104,
+        CameraClosed = 5105,
+        CameraSdkNotAvailable = 5106,
+
         // 실행 제어
         Cancelled = 6000,
     }
