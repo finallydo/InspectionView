@@ -4,6 +4,7 @@ using System.Linq;
 using InspectionView.Core.Errors;
 using InspectionView.Core.Memory;
 using OpenCvSharp;
+using ErrorCode = InspectionView.Core.Errors.ErrorCode;
 
 namespace InspectionView.Core.Types
 {

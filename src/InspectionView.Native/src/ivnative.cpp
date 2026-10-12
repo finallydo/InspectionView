@@ -2,7 +2,9 @@
 // IVN_WITH_CUDA 를 정의하고 CUDA 툴킷을 링크하면 실제 디바이스를 사용하고,
 // 그렇지 않으면 device_count 가 0 을 돌려주어 Core 가 GPU 백엔드를 건너뛴다.
 // (메모리 함수는 CUDA 없이도 host malloc 으로 동작하므로 동기화 로직 테스트에 쓸 수 있다)
+#ifndef IVN_EXPORTS
 #define IVN_EXPORTS
+#endif
 #include "../include/ivnative.h"
 
 #include <cstdlib>

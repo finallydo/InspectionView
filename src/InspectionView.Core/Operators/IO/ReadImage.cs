@@ -5,6 +5,7 @@ using InspectionView.Core.Interop;
 using InspectionView.Core.Registry;
 using InspectionView.Core.Types;
 using OpenCvSharp;
+using ErrorCode = InspectionView.Core.Errors.ErrorCode;
 
 namespace InspectionView.Core.Operators.IO
 {

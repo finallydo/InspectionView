@@ -54,7 +54,7 @@ namespace InspectionView.Core.Registry
             => _operators.Values.Select(d => d.Category).Distinct(StringComparer.Ordinal).OrderBy(c => c, StringComparer.Ordinal);
 
         public IEnumerable<OperatorDescriptor> ByCategory(string category)
-            => All.Where(d => string.Equals(d.Category, category, StringComparer.Ordinal));
+            => All.Where(d => string.Equals(d.Category, category, StringComparison.Ordinal));
 
         public bool Contains(string name) => _operators.ContainsKey(name);
 

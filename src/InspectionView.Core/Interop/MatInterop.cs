@@ -2,6 +2,7 @@ using System;
 using InspectionView.Core.Errors;
 using InspectionView.Core.Types;
 using OpenCvSharp;
+using ErrorCode = InspectionView.Core.Errors.ErrorCode;
 
 namespace InspectionView.Core.Interop
 {
@@ -79,7 +80,7 @@ namespace InspectionView.Core.Interop
         {
             if (image == null) throw VisionException.NullArgument(nameof(image));
             var ptr = image.GetHostPointer(forWrite);
-            return new Mat(image.Height, image.Width, ToMatType(image.PixelType, image.Channels), ptr, image.Stride);
+            return Mat.FromPixelData(image.Height, image.Width, ToMatType(image.PixelType, image.Channels), ptr, image.Stride);
         }
 
         /// <summary>Domain 바운딩 박스 부분만 감싸는 Mat (ROI 뷰, 복사 없음).</summary>
@@ -92,7 +93,7 @@ namespace InspectionView.Core.Interop
 
             var basePtr = image.GetHostPointer(forWrite).ToInt64();
             var ptr = new IntPtr(basePtr + image.Stride * clipped.Y + (long)clipped.X * image.BytesPerPixel);
-            return new Mat(clipped.Height, clipped.Width, ToMatType(image.PixelType, image.Channels), ptr, image.Stride);
+            return Mat.FromPixelData(clipped.Height, clipped.Width, ToMatType(image.PixelType, image.Channels), ptr, image.Stride);
         }
 
         /// <summary>Image 를 독립된 Mat 으로 복사한다.</summary>

@@ -6,6 +6,7 @@ using InspectionView.Core.Errors;
 using InspectionView.Core.Registry;
 using InspectionView.Core.Types;
 using OpenCvSharp;
+using ErrorCode = InspectionView.Core.Errors.ErrorCode;
 using Xunit;
 
 namespace InspectionView.Core.Tests
