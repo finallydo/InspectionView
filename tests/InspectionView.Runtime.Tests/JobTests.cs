@@ -41,7 +41,7 @@ Count = Len(Blobs)
 Largest = Blobs[0]
 Print('count', Count)
 ";
-            using (var roi = Region.FromRectangle(new RectI(0, 0, 64, 40)))
+            using (var roi = Region.FromRectangle(new RectI(0, 0, 64, 25)))
                 doc.SetRegion("Roi", roi);
             doc.SetParameter("MinArea", new TupleValue(50L));
             using (var model = Image.Create(8, 8, PixelType.UInt16, clear: true))
@@ -72,7 +72,7 @@ Print('count', Count)
                 Assert.Contains("Threshold(Reduced", loaded.Script);
 
                 Assert.Equal(3, loaded.Manifest.Resources.Count);
-                Assert.Equal(64L * 40, loaded.Regions["Roi"].Area);
+                Assert.Equal(64L * 25, loaded.Regions["Roi"].Area);
                 Assert.Equal(50L, loaded.Parameters["MinArea"].L());
                 var model = loaded.Images["Model"];
                 Assert.Equal(PixelType.UInt16, model.PixelType);
@@ -129,7 +129,7 @@ Print('count', Count)
             using var result = runner.Run(new Dictionary<string, object?> { ["Image"] = img });
 
             Assert.True(result.Success, result.ToString());
-            Assert.Equal(1L, result.GetTuple("Count").L());         // 두 번째 사각형은 ROI(0..40행) 밖
+            Assert.Equal(1L, result.GetTuple("Count").L());         // 두 번째 사각형(30..34행)은 ROI(0..24행) 밖
             var blobs = result.GetOutput<ObjectArray<Region>>("Blobs");
             Assert.Single(blobs);
             Assert.Equal(100, result.GetRegion("Largest").Area);
