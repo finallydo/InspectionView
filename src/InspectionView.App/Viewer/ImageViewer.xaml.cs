@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using InspectionView.Core.Types;
 using OpenTK.Graphics.OpenGL4;
+using ErrorCode = OpenTK.Graphics.OpenGL4.ErrorCode;
 using OpenTK.Wpf;
 using Image = InspectionView.Core.Types.Image;
 
@@ -29,6 +30,12 @@ namespace InspectionView.App.Viewer
         private int _uColorProj, _uColor;
         private int _maxTextureSize = 4096;
         private bool _glFailed;
+        private bool _autoContrast;
+        private OverlayLayer? _boundsLayer;
+        private string _glInfo = "";
+
+        /// <summary>OpenGL 단계에서 예외가 났을 때 (메시지). 출력 창 기록용.</summary>
+        public event Action<string>? RenderError;
 
         private Image? _image;              // 표시 중인 이미지 (AddRef 됨)
         private Image? _pendingImage;       // 다음 렌더에서 업로드할 이미지 (AddRef 됨)
@@ -121,6 +128,7 @@ namespace InspectionView.App.Viewer
                 if (fit || _image == null || _image.Width != image.Width || _image.Height != image.Height)
                     _fitOnNextImage = true;
             }
+            _glFailed = false;                      // 새 이미지로 다시 시도
             Invalidate();
             ImageChanged?.Invoke();
         }
@@ -226,11 +234,14 @@ namespace InspectionView.App.Viewer
             if (_glFailed)
                 return;
 
+            string phase = "init";
             try
             {
                 EnsureShaders();
+                phase = "upload";
                 ProcessPending();
 
+                phase = "draw";
                 double dpi = DpiScale();
                 int vw = Math.Max(1, (int)Math.Round(Surface.ActualWidth * dpi));
                 int vh = Math.Max(1, (int)Math.Round(Surface.ActualHeight * dpi));
@@ -248,28 +259,39 @@ namespace InspectionView.App.Viewer
                     GL.ActiveTexture(TextureUnit.Texture0);
                     GL.Uniform1(_uTex, 0);
                     GL.Uniform1(_uChannels, _texture.ShaderChannels);
-                    GL.Uniform1(_uScale, _texture.Scale);
-                    GL.Uniform1(_uOffset, _texture.Offset);
+                    GL.Uniform1(_uScale, _autoContrast ? _texture.AutoScale : _texture.Scale);
+                    GL.Uniform1(_uOffset, _autoContrast ? _texture.AutoOffset : _texture.Offset);
                     _texture.Draw();
                 }
 
-                if (_overlays.Count > 0 || _roiLayer != null || _profileLayer != null)
+                if (_boundsLayer != null || _overlays.Count > 0 || _roiLayer != null || _profileLayer != null)
                 {
                     _colorShader!.Use();
                     GL.UniformMatrix4(_uColorProj, 1, false, proj);
                     GL.Enable(EnableCap.Blend);
                     GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                    _boundsLayer?.Draw(_uColor);
                     foreach (var layer in _overlays)
                         layer.Draw(_uColor);
                     _roiLayer?.Draw(_uColor);
                     _profileLayer?.Draw(_uColor);
                     GL.Disable(EnableCap.Blend);
                 }
+
+                var err = GL.GetError();
+                if (err != ErrorCode.NoError)
+                    throw new InvalidOperationException($"GL error {err} after {phase}");
+
+                if (ErrorPanel.Visibility == Visibility.Visible)
+                    ErrorPanel.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
             {
                 _glFailed = true;
-                InfoText.Text = "OpenGL error: " + ex.Message;
+                var message = $"OpenGL {phase} failed: {ex.GetType().Name}: {ex.Message}\n{_glInfo}";
+                ErrorText.Text = message;
+                ErrorPanel.Visibility = Visibility.Visible;
+                RenderError?.Invoke(message);
             }
         }
 
@@ -291,6 +313,15 @@ namespace InspectionView.App.Viewer
 
             GL.GetInteger(GetPName.MaxTextureSize, out _maxTextureSize);
             _maxTextureSize = Math.Min(Math.Max(1024, _maxTextureSize), 4096);
+
+            try
+            {
+                _glInfo = $"GL {GL.GetString(StringName.Version)} | {GL.GetString(StringName.Renderer)} | GLSL {GL.GetString(StringName.ShadingLanguageVersion)}";
+            }
+            catch (Exception)
+            {
+                _glInfo = "";
+            }
         }
 
         private void ProcessPending()
@@ -318,9 +349,13 @@ namespace InspectionView.App.Viewer
                 _image?.Release();
                 _image = img;
 
+                _boundsLayer?.Dispose();
+                _boundsLayer = null;
+
                 if (!img.IsDisposed)
                 {
                     _texture = ImageTextureSet.Upload(img, _maxTextureSize);
+                    _boundsLayer = OverlayLayer.FromRect(new RectI(0, 0, img.Width, img.Height), new OverlayColor(0.6f, 0.6f, 0.6f, 1f), "Bounds");
                     if (_fitOnNextImage)
                     {
                         _fitOnNextImage = false;
@@ -347,8 +382,15 @@ namespace InspectionView.App.Viewer
 
         private double DpiScale()
         {
-            var src = PresentationSource.FromVisual(this);
-            return src?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+            try
+            {
+                return System.Windows.Media.VisualTreeHelper.GetDpi(this).DpiScaleX;
+            }
+            catch (Exception)
+            {
+                var src = PresentationSource.FromVisual(this);
+                return src?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+            }
         }
 
         // ------------------------------------------------------------------
@@ -493,7 +535,7 @@ namespace InspectionView.App.Viewer
             }
 
             var roi = Roi.HasValue ? $"   ROI: row {Roi.Value.Y}..{Roi.Value.Bottom - 1}, col {Roi.Value.X}..{Roi.Value.Right - 1}" : "";
-            InfoText.Text = $"x: {x,5}  y: {y,5}   value: {value}{roi}";
+            InfoText.Text = $"{img.Width}x{img.Height} {img.PixelType.ShortName()}{(img.Channels > 1 ? "x" + img.Channels : "")}   x: {x,5}  y: {y,5}   value: {value}{roi}";
         }
 
         private static string FormatValue(double v)
@@ -504,6 +546,12 @@ namespace InspectionView.App.Viewer
         // ------------------------------------------------------------------
         // 툴바
         // ------------------------------------------------------------------
+
+        private void OnAutoContrastChanged(object sender, RoutedEventArgs e)
+        {
+            _autoContrast = AutoContrastButton.IsChecked == true;
+            Invalidate();
+        }
 
         private void OnRoiChecked(object sender, RoutedEventArgs e) => ProfileButton.IsChecked = false;
         private void OnProfileChecked(object sender, RoutedEventArgs e) => RoiButton.IsChecked = false;

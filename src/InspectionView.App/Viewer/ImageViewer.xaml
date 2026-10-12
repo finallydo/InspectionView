@@ -16,6 +16,8 @@
                 <Separator />
                 <Button Click="OnClearOverlays" ToolTip="Remove all region / contour overlays">Clear overlays</Button>
                 <Separator />
+                <ToggleButton x:Name="AutoContrastButton" ToolTip="Stretch the displayed gray range to the image's min..max" Checked="OnAutoContrastChanged" Unchecked="OnAutoContrastChanged">Auto contrast</ToggleButton>
+                <Separator />
                 <TextBlock x:Name="ZoomText" VerticalAlignment="Center" Margin="6,0" Text="100%" />
             </ToolBar>
         </ToolBarTray>
@@ -26,6 +28,10 @@
         </StatusBar>
         <Grid x:Name="Surface" Background="#FF303030" ClipToBounds="True">
             <gl:GLWpfControl x:Name="Gl" />
+            <Border x:Name="ErrorPanel" Visibility="Collapsed" Background="#CC402020" BorderBrush="#FFFF6060" BorderThickness="1"
+                    VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="8" Padding="8">
+                <TextBlock x:Name="ErrorText" Foreground="White" FontFamily="Consolas" TextWrapping="Wrap" />
+            </Border>
         </Grid>
     </DockPanel>
 </UserControl>

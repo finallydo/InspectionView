@@ -72,6 +72,7 @@ namespace InspectionView.App
             _vm.PropertyChanged += OnViewModelPropertyChanged;
             _vm.GoToLineRequested += GoToLine;
             _vm.DisplayRequested += ShowVariable;
+            _vm.ResultsRequested += ShowResults;
             _vm.ScriptDisplayRequested += OnScriptDisplay;
             _vm.ScriptClearWindowRequested += OnScriptClearWindow;
             RegisterViewer(Viewer);
@@ -276,6 +277,7 @@ namespace InspectionView.App
         {
             _viewers.Add(viewer);
             viewer.Activated += () => SetActiveViewer(viewer);
+            viewer.RenderError += message => _vm.ReportViewerError($"Graphics {_viewers.IndexOf(viewer) + 1}: {message}");
             viewer.InsertRoiRequested += InsertRoi;
             viewer.ImageChanged += () => { if (ReferenceEquals(viewer, _activeViewer)) RefreshAnalysis(); };
             viewer.RoiChanged += _ => { if (ReferenceEquals(viewer, _activeViewer)) RefreshHistogram(); };
@@ -386,6 +388,33 @@ namespace InspectionView.App
             if (_vm.State == EngineState.Running)
                 return;
             Display(_activeViewer, item.Raw, item.Name);
+        }
+
+        /// <summary>실행이 멈춘 뒤 자동 표시: 마지막으로 바뀐 Image 를 배경으로, 그 뒤에 바뀐 Region/XLD 들을 오버레이로.</summary>
+        private void ShowResults(IReadOnlyList<VariableItem> items)
+        {
+            if (_vm.State == EngineState.Running || items.Count == 0)
+                return;
+
+            int lastImage = -1;
+            for (int i = items.Count - 1; i >= 0; i--)
+            {
+                if (items[i].Raw is Image || items[i].Raw is ObjectArray<Image>)
+                {
+                    lastImage = i;
+                    break;
+                }
+            }
+
+            if (lastImage >= 0)
+                Display(_activeViewer, items[lastImage].Raw, items[lastImage].Name);
+
+            for (int i = lastImage + 1; i < items.Count; i++)
+            {
+                var raw = items[i].Raw;
+                if (raw is Region || raw is XldContour || (raw is IObjectArray && !(raw is ObjectArray<Image>)))
+                    Display(_activeViewer, raw, items[i].Name);
+            }
         }
 
         private void OnScriptDisplay(object value, int window) => Display(GetViewer(window), value, "Display");

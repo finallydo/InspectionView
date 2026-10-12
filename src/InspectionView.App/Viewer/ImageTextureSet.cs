@@ -35,6 +35,10 @@ namespace InspectionView.App.Viewer
         public float Scale { get; private set; } = 1f;
         public float Offset { get; private set; }
 
+        /// <summary>자동 대비(min..max 스트레치)용 매핑.</summary>
+        public float AutoScale { get; private set; } = 1f;
+        public float AutoOffset { get; private set; }
+
         public int TileCount => _tiles.Count;
 
         private ImageTextureSet(int width, int height, int shaderChannels)
@@ -106,7 +110,19 @@ namespace InspectionView.App.Viewer
                     break;
                 }
             }
-            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+            try
+            {
+                GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+            }
+            catch (Exception)
+            {
+                // 드라이버가 지원하지 않으면 밉맵 없이 표시
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+            }
+
+            var err = GL.GetError();
+            if (err != OpenTK.Graphics.OpenGL4.ErrorCode.NoError)
+                throw new InvalidOperationException($"Texture upload failed ({err}) for tile {w}x{h} at ({x},{y}), {image.PixelType}x{image.Channels}");
 
             // 타일 사각형 (이미지 픽셀 좌표 + uv)
             float x0 = x, y0 = y, x1 = x + w, y1 = y + h;
@@ -189,16 +205,9 @@ namespace InspectionView.App.Viewer
             return buf;
         }
 
-        /// <summary>표시 범위 계산: 8bit 는 0~255, 그 외는 샘플링한 min/max.</summary>
+        /// <summary>표시 범위 계산: 기본은 8bit 0~255 / 그 외 샘플링한 min/max. 자동 대비는 항상 min/max.</summary>
         private void ComputeRange(Image image, int outCh)
         {
-            if (image.PixelType == PixelType.UInt8)
-            {
-                Scale = 1f;
-                Offset = 0f;
-                return;
-            }
-
             int step = Math.Max(1, (int)Math.Sqrt((double)image.Width * image.Height / 1_000_000));
             double min = double.MaxValue, max = double.MinValue;
             int take = Math.Min(outCh, image.Channels);
@@ -219,16 +228,28 @@ namespace InspectionView.App.Viewer
                 max = min + 1;
             }
 
-            if (image.PixelType == PixelType.UInt16)
+            if (image.PixelType == PixelType.UInt8)
+            {
+                // R8 텍스처는 0..1 로 정규화되어 샘플링된다
+                Scale = 1f;
+                Offset = 0f;
+                AutoOffset = (float)(min / 255.0);
+                AutoScale = (float)(255.0 / (max - min));
+            }
+            else if (image.PixelType == PixelType.UInt16)
             {
                 // R16 텍스처는 0..1 로 정규화되어 샘플링된다
                 Offset = (float)(min / 65535.0);
                 Scale = (float)(65535.0 / (max - min));
+                AutoOffset = Offset;
+                AutoScale = Scale;
             }
             else
             {
                 Offset = (float)min;
                 Scale = (float)(1.0 / (max - min));
+                AutoOffset = Offset;
+                AutoScale = Scale;
             }
         }
 

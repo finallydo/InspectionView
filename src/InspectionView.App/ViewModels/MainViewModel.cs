@@ -37,7 +37,7 @@ namespace InspectionView.App.ViewModels
         private bool _fastMode;
         private BackendKind _backend = BackendKind.Auto;
         private VariableItem? _selectedVariable;
-        private string _lastIconicVariable = "";
+        private readonly List<string> _changedIconics = new List<string>();
         private bool _autoDisplay = true;
         private string _outputText = "";
 
@@ -85,8 +85,11 @@ namespace InspectionView.App.ViewModels
         /// <summary>UI 가 알아야 하는 요청: 캐럿을 특정 줄로 (오류 더블클릭 등).</summary>
         public event Action<int>? GoToLineRequested;
 
-        /// <summary>그래픽 창에 변수를 표시해 달라는 요청 (자동 표시).</summary>
+        /// <summary>그래픽 창에 변수를 표시해 달라는 요청 (변수창 선택).</summary>
         public event Action<VariableItem>? DisplayRequested;
+
+        /// <summary>실행이 멈춘 뒤 바뀐 아이코닉 변수들(순서대로)을 표시해 달라는 요청 (자동 표시).</summary>
+        public event Action<IReadOnlyList<VariableItem>>? ResultsRequested;
 
         /// <summary>스크립트의 Display(Value, Window): (값, 창 번호). 값은 호출 동안만 유효하다 (호출 후 Release 됨).</summary>
         public event Action<object, int>? ScriptDisplayRequested;
@@ -110,7 +113,10 @@ namespace InspectionView.App.ViewModels
                 {
                     _dirtyVariables.Add(name);
                     if (value is Core.Memory.IconicObject)
-                        _lastIconicVariable = name;
+                    {
+                        _changedIconics.Remove(name);
+                        _changedIconics.Add(name);
+                    }
                 }
             };
             Engine.Profiler.Recorded += _ => _profileDirty = true;
@@ -728,21 +734,32 @@ namespace InspectionView.App.ViewModels
 
         private void AutoDisplayLast()
         {
-            if (!AutoDisplay)
-                return;
-
-            string name;
+            string[] names;
             lock (_dirtyLock)
             {
-                name = _lastIconicVariable;
-                _lastIconicVariable = "";
+                names = _changedIconics.ToArray();
+                _changedIconics.Clear();
             }
-            if (name.Length == 0)
+            if (!AutoDisplay || names.Length == 0)
                 return;
 
-            var item = Variables.FirstOrDefault(v => v.Name == name);
-            if (item != null && item.Raw != null)
-                DisplayRequested?.Invoke(item);
+            var items = new List<VariableItem>();
+            foreach (var name in names)
+            {
+                var item = Variables.FirstOrDefault(v => v.Name == name);
+                if (item != null && item.Raw != null)
+                    items.Add(item);
+            }
+            if (items.Count > 0)
+                ResultsRequested?.Invoke(items);
+        }
+
+        /// <summary>뷰어 OpenGL 오류를 출력 창과 상태줄에 기록한다.</summary>
+        public void ReportViewerError(string message)
+        {
+            AppendOutput("[graphics] " + message);
+            StatusText = "Graphics error (see Output)";
+            Tick();
         }
 
         // ------------------------------------------------------------------

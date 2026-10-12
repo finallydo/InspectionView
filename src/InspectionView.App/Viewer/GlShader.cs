@@ -41,7 +41,7 @@ namespace InspectionView.App.Viewer
             {
                 var log = GL.GetShaderInfoLog(id);
                 GL.DeleteShader(id);
-                throw new InvalidOperationException($"{type} compile failed: {log}");
+                throw new InvalidOperationException($"{type} compile failed: {log.Trim()} (source starts with '{source.Split('\n')[0].Trim()}')");
             }
             return id;
         }
