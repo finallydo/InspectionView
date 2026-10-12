@@ -50,7 +50,7 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 10. 1차 연산자: ReadImage, WriteImage, Threshold, Connection, SelectShape, ReduceDomain, CropPart
 
 ## 로드맵
-1. 1차 연산자 6개 (Cpu + Parallel) 와 테스트
+1. ~~1차 연산자 6개 (Cpu + Parallel) 와 테스트~~ (완료)
 2. Script 렉서/파서/인터프리터, 브레이크포인트, 백그라운드 실행/중지
 3. App: 도킹 레이아웃, 에디터, 변수창, 연산자 트리, OpenGL 뷰어
 4. Runtime: Job zip, 터미널 바인딩, C++/CLI 브리지

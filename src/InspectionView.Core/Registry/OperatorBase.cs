@@ -28,6 +28,7 @@ namespace InspectionView.Core.Registry
     public abstract class OperatorBase
     {
         private OperatorDescriptor? _descriptor;
+        private List<IDisposable>? _temporaries;
 
         /// <summary>이 연산자의 메타데이터.</summary>
         public OperatorDescriptor Descriptor
@@ -40,6 +41,23 @@ namespace InspectionView.Core.Registry
 
         /// <summary>마지막 실행 기록.</summary>
         public ExecutionRecord? LastExecution { get; private set; }
+
+        /// <summary>입력 변환 중 생긴 임시 객체를 등록한다. 실행이 끝나면 자동으로 해제된다.</summary>
+        public void AddTemporary(IDisposable temporary)
+        {
+            if (temporary == null) return;
+            (_temporaries ?? (_temporaries = new List<IDisposable>())).Add(temporary);
+        }
+
+        private void DisposeTemporaries()
+        {
+            if (_temporaries == null) return;
+            foreach (var t in _temporaries)
+            {
+                try { t.Dispose(); } catch { /* 해제 실패는 무시 */ }
+            }
+            _temporaries.Clear();
+        }
 
         /// <summary>입력 검증. 잘못된 입력은 <see cref="VisionException"/> 으로 던진다.</summary>
         protected virtual void Validate()
@@ -97,6 +115,7 @@ namespace InspectionView.Core.Registry
                 record.Elapsed = sw.Elapsed;
                 LastExecution = record;
                 ctx.Profiler.Add(record);
+                DisposeTemporaries();
             }
         }
 

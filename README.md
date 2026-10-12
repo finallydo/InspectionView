@@ -23,7 +23,8 @@ InspectionView/
 │  │  ├─ Registry/   Operator/Input/Output/Backend Attribute, OperatorDescriptor,
 │  │  │              OperatorBase, OperatorContext(프로파일러), OperatorRegistry(플러그인 로드), OperatorInvoker
 │  │  ├─ Interop/    MatInterop (Image <-> OpenCvSharp Mat, 복사 없는 래핑)
-│  │  └─ Operators/  IO/ReadImage
+│  │  └─ Operators/  IO(ReadImage, WriteImage), Segmentation(Threshold),
+│  │                 Regions(Connection, SelectShape), Images(ReduceDomain, CropPart)
 │  ├─ InspectionView.Native/          [C++ DLL]  GPU 백엔드 (CUDA 옵션, 없으면 device_count = 0)
 │  ├─ InspectionView.Script/          [net8.0; net48]  스크립트 AST (파서/인터프리터는 다음 단계)
 │  ├─ InspectionView.Runtime/         [net8.0; net48]  Job 패키지 manifest (zip 입출력/실행기는 다음 단계)
@@ -87,8 +88,7 @@ Image = ReadImage('C:/img/a.png')
 ```
 
 ## 다음 단계
-1. 1차 연산자: WriteImage, Threshold, Connection, SelectShape, ReduceDomain, CropPart (CPU + Parallel, 필요 시 GPU)
-2. Script: 렉서/파서 → AST, 인터프리터(변수 테이블, 브레이크포인트, 줄 단위 실행), 백그라운드 실행/중지
-3. App: AvalonDock 레이아웃, AvalonEdit 하이라이트/자동완성(레지스트리 메타데이터), 변수창, 연산자 트리, OpenGL 뷰어(피라미드/타일 텍스처)
-4. Runtime: Job zip 입출력, 입출력 터미널 바인딩, C++/CLI 브리지
-5. 카메라 공통 인터페이스 + 벤더 플러그인, 2.5D 연산자군
+1. Script: 렉서/파서 → AST, 인터프리터(변수 테이블, 브레이크포인트, 줄 단위 실행), 백그라운드 실행/중지
+2. App: AvalonDock 레이아웃, AvalonEdit 하이라이트/자동완성(레지스트리 메타데이터), 변수창, 연산자 트리, OpenGL 뷰어(피라미드/타일 텍스처)
+3. Runtime: Job zip 입출력, 입출력 터미널 바인딩, C++/CLI 브리지
+4. 카메라 공통 인터페이스 + 벤더 플러그인, 2.5D 연산자군

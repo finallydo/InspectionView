@@ -46,7 +46,7 @@ namespace InspectionView.Core.Registry
             Order = attr.Order == int.MaxValue ? declarationIndex : attr.Order;
             Min = attr.Min;
             Max = attr.Max;
-            Choices = attr.Choices;
+            Choices = attr.Choices ?? (ValueType.IsEnum ? Enum.GetNames(ValueType) : null);
         }
 
         internal ParameterDescriptor(PropertyInfo property, OutputAttribute attr, int declarationIndex)
@@ -77,7 +77,7 @@ namespace InspectionView.Core.Registry
             if (Direction != ParameterDirection.Input)
                 throw new VisionException(ErrorCode.InvalidArgument, $"'{Name}' is an output parameter.");
 
-            var converted = ConvertValue(value);
+            var converted = ConvertValue(value, op);
             CheckRange(converted);
 
             var setter = Property.GetSetMethod(nonPublic: true)
@@ -111,8 +111,11 @@ namespace InspectionView.Core.Registry
             if (!double.IsNaN(Max) && d > Max) throw VisionException.OutOfRange(Name, d, double.IsNaN(Min) ? "-inf" : Min, Max);
         }
 
-        /// <summary>느슨한 스크립트 값을 파라미터 타입으로 변환한다.</summary>
-        public object? ConvertValue(object? value)
+        /// <summary>
+        /// 느슨한 스크립트 값을 파라미터 타입으로 변환한다.
+        /// 변환 과정에서 임시 아이코닉 객체(예: Region → Region[] 래퍼)가 생기면 <paramref name="owner"/> 가 실행 후 해제한다.
+        /// </summary>
+        public object? ConvertValue(object? value, OperatorBase? owner = null)
         {
             var target = Nullable.GetUnderlyingType(ValueType) ?? ValueType;
 
@@ -125,6 +128,29 @@ namespace InspectionView.Core.Registry
 
             if (target.IsInstanceOfType(value))
                 return value;
+
+            // 단일 객체 → 객체 배열 (Region 을 Region[] 입력에 바로 넘길 수 있게)
+            if (value is IconicObject single && target.IsGenericType && target.GetGenericTypeDefinition() == typeof(ObjectArray<>))
+            {
+                var itemType = target.GetGenericArguments()[0];
+                if (itemType.IsInstanceOfType(single))
+                {
+                    var wrapper = (IconicObject)Activator.CreateInstance(target)!;
+                    target.GetMethod("Add")!.Invoke(wrapper, new object[] { single });
+                    owner?.AddTemporary(wrapper);
+                    return wrapper;
+                }
+            }
+
+            // 객체 배열(원소 1개) → 단일 객체
+            if (value is IObjectArray arr && typeof(IconicObject).IsAssignableFrom(target))
+            {
+                if (arr.Count != 1)
+                    throw new VisionException(ErrorCode.TypeMismatch, $"'{Name}' expects a single {DisplayNameOf(target)} but got an array of {arr.Count}.");
+                var item = arr.ItemAt(0);
+                if (target.IsInstanceOfType(item))
+                    return item;
+            }
 
             // Tuple → 스칼라
             if (value is TupleValue tuple)

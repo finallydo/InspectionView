@@ -49,6 +49,25 @@ namespace InspectionView.Core.Types
             _runs = normalized ? runs : Normalize(runs);
         }
 
+        /// <summary>연산자 구현용: 이미 정렬/병합된 run 배열을 복사 없이 감싼다. 배열은 호출 후 수정하면 안 된다.</summary>
+        internal static Region FromNormalizedRuns(Run[] runs) => new Region(runs, normalized: true);
+
+        /// <summary>연산자 구현용: 내부 run 배열 (읽기 전용으로만 사용).</summary>
+        internal Run[] RunsArray => _runs;
+
+        /// <summary><paramref name="row"/> 이상인 첫 run 의 인덱스 (없으면 RunCount).</summary>
+        public int LowerBoundRow(int row)
+        {
+            int lo = 0, hi = _runs.Length;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) >> 1;
+                if (_runs[mid].Row < row) lo = mid + 1;
+                else hi = mid;
+            }
+            return lo;
+        }
+
         // ------------------------------------------------------------------
         // 생성 팩토리
         // ------------------------------------------------------------------
