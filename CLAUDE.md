@@ -70,5 +70,5 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 2. ~~Script 렉서/파서/인터프리터, 브레이크포인트, 백그라운드 실행/중지~~ (완료)
 3. ~~App: 도킹 레이아웃, 에디터, 변수창(썸네일), 연산자 트리, OpenGL 뷰어(타일/밉맵, 오버레이, ROI, 프로파일), 히스토그램/라인 프로파일, 다중 그래픽 창~~ (완료) → 2.5D 3D 보기는 이후
 4. ~~Runtime: Job zip, 터미널 바인딩, C# API, C++/CLI 브리지, IDE Job 메뉴/터미널 창~~ (완료)
-5. 연산자 확장 1차 ~~필터/산술/모폴로지/영역 집합·특징·생성~~ (완료) → 2차: 에지/XLD, 1D 측정, 템플릿 매칭, 폴더 순회
+5. 연산자 확장 ~~1차 필터/산술/모폴로지/영역~~, ~~2차 에지/XLD(EdgesSubPix, 피팅, 변환), MeasurePos, NCC 매칭, ListFiles~~ (완료). 미구현: 회전/스케일 매칭(shape model), 1D 측정 쌍(MeasurePairs), 캘리브레이션
 6. 2.5D 연산자군 → 카메라 인터페이스/플러그인 → GPU(CUDA) → 노드 UI(Nodify)

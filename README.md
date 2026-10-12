@@ -23,8 +23,9 @@ InspectionView/
 │  │  ├─ Registry/   Operator/Input/Output/Backend Attribute, OperatorDescriptor,
 │  │  │              OperatorBase, OperatorContext(프로파일러), OperatorRegistry(플러그인 로드), OperatorInvoker
 │  │  ├─ Interop/    MatInterop (Image <-> OpenCvSharp Mat, 복사 없는 래핑)
-│  │  └─ Operators/  IO, Segmentation(Threshold, DynThreshold), Filters, Arithmetic, Morphology,
-│  │                 Regions(집합/특징/생성/ShapeTrans/Paint), Images(ReduceDomain, CropPart)
+│  │  └─ Operators/  IO(ReadImage, WriteImage, ListFiles), Segmentation(Threshold, DynThreshold), Filters, Arithmetic,
+│  │                 Morphology, Regions(집합/특징/생성/ShapeTrans/Paint), Images, Xld(EdgesSubPix, 피팅, 변환),
+│  │                 Measure(MeasurePos), Matching(CreateNccModel, FindNccModel)
 │  ├─ InspectionView.Native/          [C++ DLL]  GPU 백엔드 (CUDA 옵션, 없으면 device_count = 0)
 │  ├─ InspectionView.Script/          [net8.0; net48]  스크립트: Lexing/Parsing(AST) → Compilation(명령 리스트) → Runtime(인터프리터, ScriptEngine)
 │  ├─ InspectionView.Runtime/         [net8.0; net48]  Job 패키지(.ivjob) 입출력, JobRunner(터미널 바인딩), InspectionJob(검사 프로그램 API)
