@@ -150,7 +150,16 @@ namespace InspectionView.App.Viewer
             }
             gl.Render += OnRender;
             _gl = gl;
+
+            // GLWpfControl 의 연속 렌더링은 IsVisibleChanged 에 의존해 도킹 환경에서 멈출 수 있으므로
+            // WPF 컴포지션 프레임마다 직접 다시 그리기를 요청한다.
+            System.Windows.Media.CompositionTarget.Rendering += OnCompositionRendering;
             Log?.Invoke($"GL control created (context #{_contextGeneration})");
+        }
+
+        private void OnCompositionRendering(object? sender, EventArgs e)
+        {
+            _gl?.InvalidateVisual();
         }
 
         private void DestroyGlControl()
@@ -158,6 +167,7 @@ namespace InspectionView.App.Viewer
             var gl = _gl;
             if (gl == null)
                 return;
+            System.Windows.Media.CompositionTarget.Rendering -= OnCompositionRendering;
             gl.Render -= OnRender;
             Surface.Children.Remove(gl);
             _gl = null;
@@ -357,6 +367,9 @@ namespace InspectionView.App.Viewer
                 var err = GL.GetError();
                 if (err != ErrorCode.NoError)
                     throw new InvalidOperationException($"GL error {err} after {phase}");
+
+                if (_frameCount % 15 == 0)
+                    UpdateZoomText(vw, vh);
 
                 if (ErrorPanel.Visibility == Visibility.Visible)
                     ErrorPanel.Visibility = Visibility.Collapsed;
@@ -614,6 +627,9 @@ namespace InspectionView.App.Viewer
             => v == Math.Floor(v) ? ((long)v).ToString(CultureInfo.InvariantCulture) : v.ToString("F3", CultureInfo.InvariantCulture);
 
         private void UpdateZoomText() => ZoomText.Text = $"{_zoom * 100:F0}%";
+
+        private void UpdateZoomText(int vw, int vh)
+            => ZoomText.Text = $"{_zoom * 100:F0}%  [{vw}x{vh}, frame {_frameCount}, tiles {_texture?.TileCount ?? 0}]";
 
         // ------------------------------------------------------------------
         // 툴바
