@@ -1,0 +1,8 @@
+<UserControl x:Class="InspectionView.App.Viewer.HistogramControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DockPanel Background="#FF252525">
+        <TextBlock x:Name="Info" DockPanel.Dock="Top" Foreground="#FFDDDDDD" FontFamily="Consolas" Margin="6,3" Text="No image" />
+        <Canvas x:Name="Plot" ClipToBounds="True" SizeChanged="OnSizeChanged" Margin="6,0,6,6" />
+    </DockPanel>
+</UserControl>

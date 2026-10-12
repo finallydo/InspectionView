@@ -32,6 +32,10 @@
                 <Separator />
                 <MenuItem Header="E_xit" Click="OnExit" />
             </MenuItem>
+            <MenuItem Header="_Window">
+                <MenuItem Header="_New Graphics Window" Click="OnNewGraphicsWindow" />
+                <MenuItem Header="_Close Extra Graphics Windows" Click="OnCloseExtraGraphicsWindows" />
+            </MenuItem>
             <MenuItem Header="_Run">
                 <MenuItem Header="_Run" InputGestureText="F5" Command="{Binding RunCommand, ElementName=Root}" />
                 <MenuItem Header="_Step" InputGestureText="F6" Command="{Binding StepCommand, ElementName=Root}" />
@@ -140,6 +144,15 @@
                                     <ListView ItemsSource="{Binding Variables}" SelectedItem="{Binding SelectedVariable}" BorderThickness="0">
                                         <ListView.View>
                                             <GridView>
+                                                <GridViewColumn Header="" Width="52">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Border Width="44" Height="34" Background="#FF303030">
+                                                                <Image Source="{Binding Thumbnail}" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor" Margin="1" />
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
                                                 <GridViewColumn Header="Name" Width="110" DisplayMemberBinding="{Binding Name}" />
                                                 <GridViewColumn Header="Type" Width="90" DisplayMemberBinding="{Binding Type}" />
                                                 <GridViewColumn Header="Value" Width="400" DisplayMemberBinding="{Binding Value}" />
@@ -148,8 +161,8 @@
                                     </ListView>
                                 </ad:LayoutAnchorable>
                             </ad:LayoutAnchorablePane>
-                            <ad:LayoutAnchorablePane>
-                                <ad:LayoutAnchorable Title="Graphics" ContentId="graphics" CanClose="False" CanHide="False">
+                            <ad:LayoutAnchorablePane x:Name="GraphicsPane">
+                                <ad:LayoutAnchorable Title="Graphics 1" ContentId="graphics1" CanClose="False" CanHide="False">
                                     <viewer:ImageViewer x:Name="Viewer" />
                                 </ad:LayoutAnchorable>
                             </ad:LayoutAnchorablePane>
@@ -178,7 +191,13 @@
                                 </ListView.View>
                             </ListView>
                         </ad:LayoutAnchorable>
-                        <ad:LayoutAnchorable Title="Profile" ContentId="profile" CanClose="False" CanHide="False">
+                        <ad:LayoutAnchorable Title="Histogram" ContentId="histogram" CanClose="False" CanHide="False">
+                            <viewer:HistogramControl x:Name="Histogram" />
+                        </ad:LayoutAnchorable>
+                        <ad:LayoutAnchorable Title="Line Profile" ContentId="lineprofile" CanClose="False" CanHide="False">
+                            <viewer:ProfileControl x:Name="LineProfile" />
+                        </ad:LayoutAnchorable>
+                        <ad:LayoutAnchorable Title="Timing" ContentId="timing" CanClose="False" CanHide="False">
                             <DockPanel>
                                 <Button DockPanel.Dock="Top" HorizontalAlignment="Right" Padding="8,1" Margin="2" Click="OnClearProfile">Clear</Button>
                                 <ListView ItemsSource="{Binding Profile}" BorderThickness="0">

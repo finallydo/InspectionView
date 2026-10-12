@@ -41,6 +41,21 @@ namespace InspectionView.Script.Runtime
                 return null;
             });
             Register("TypeOf", (a, l, h) => new TupleValue(ScriptValues.TypeName(Arg(a, 0, l))));
+            Register("Display", (a, l, h) =>
+            {
+                var value = Arg(a, 0, l);
+                int window = a.Length > 1 ? (int)ScriptValues.ToTuple(a[1], l).L() : 0;
+                if (window < 0) throw new ScriptRuntimeException(l, "Window index must be >= 0");
+                h.Display(value, window);
+                return null;
+            });
+            Register("ClearWindow", (a, l, h) =>
+            {
+                int window = a.Length > 0 ? (int)ScriptValues.ToTuple(a[0], l).L() : 0;
+                if (window < 0) throw new ScriptRuntimeException(l, "Window index must be >= 0");
+                h.ClearWindow(window);
+                return null;
+            });
         }
 
         public void Register(string name, BuiltinFunction fn) => _functions[name] = fn;
@@ -144,9 +159,15 @@ namespace InspectionView.Script.Runtime
         }
     }
 
-    /// <summary>내장 함수가 엔진에 접근하는 통로 (출력 창 등).</summary>
+    /// <summary>내장 함수가 엔진에 접근하는 통로 (출력 창, 그래픽 창).</summary>
     public interface IScriptHost
     {
         void Print(string text);
+
+        /// <summary>Display(Value, Window): 값을 그래픽 창에 표시해 달라는 요청. 실행 스레드에서 호출된다.</summary>
+        void Display(object? value, int window);
+
+        /// <summary>ClearWindow(Window).</summary>
+        void ClearWindow(int window);
     }
 }

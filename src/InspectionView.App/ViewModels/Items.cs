@@ -1,5 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Windows.Media.Imaging;
+using InspectionView.App.Imaging;
+using InspectionView.Core.Memory;
 using InspectionView.Core.Registry;
 using InspectionView.Script.Parsing;
 using InspectionView.Script.Runtime;
@@ -12,6 +15,8 @@ namespace InspectionView.App.ViewModels
         private string _type = "";
         private string _value = "";
         private object? _raw;
+        private BitmapSource? _thumbnail;
+        private bool _thumbnailDirty;
 
         public string Name { get; }
 
@@ -34,6 +39,15 @@ namespace InspectionView.App.ViewModels
             set => Set(ref _raw, value);
         }
 
+        public BitmapSource? Thumbnail
+        {
+            get => _thumbnail;
+            private set => Set(ref _thumbnail, value);
+        }
+
+        /// <summary>썸네일을 다시 만들어야 하는지 (실행 중에는 미룬다).</summary>
+        public bool ThumbnailDirty => _thumbnailDirty;
+
         public VariableItem(string name)
         {
             Name = name;
@@ -44,6 +58,16 @@ namespace InspectionView.App.ViewModels
             Raw = value;
             Type = ScriptValues.TypeName(value);
             Value = ScriptValues.Format(value);
+            _thumbnailDirty = value is IconicObject;
+            if (!_thumbnailDirty)
+                Thumbnail = null;
+        }
+
+        /// <summary>썸네일 생성 (UI 스레드, 엔진이 멈춰 있을 때 호출).</summary>
+        public void RefreshThumbnail()
+        {
+            _thumbnailDirty = false;
+            Thumbnail = ThumbnailFactory.Create(Raw);
         }
     }
 

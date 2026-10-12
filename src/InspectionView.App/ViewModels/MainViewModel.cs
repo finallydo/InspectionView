@@ -21,6 +21,7 @@ namespace InspectionView.App.ViewModels
         private readonly HashSet<string> _dirtyVariables = new HashSet<string>(StringComparer.Ordinal);
         private readonly object _dirtyLock = new object();
         private readonly StringBuilder _output = new StringBuilder();
+        private readonly Queue<(object? Value, int Window, bool Clear)> _displayQueue = new Queue<(object?, int, bool)>();
         private volatile bool _outputDirty;
         private volatile bool _profileDirty;
         private volatile int _pendingLine = int.MinValue;
@@ -54,6 +55,12 @@ namespace InspectionView.App.ViewModels
         /// <summary>그래픽 창에 변수를 표시해 달라는 요청 (자동 표시).</summary>
         public event Action<VariableItem>? DisplayRequested;
 
+        /// <summary>스크립트의 Display(Value, Window): (값, 창 번호). 값은 호출 동안만 유효하다 (호출 후 Release 됨).</summary>
+        public event Action<object, int>? ScriptDisplayRequested;
+
+        /// <summary>스크립트의 ClearWindow(Window).</summary>
+        public event Action<int>? ScriptClearWindowRequested;
+
         public MainViewModel(Action<Action> uiInvoke, OperatorRegistry? registry = null)
         {
             _ui = uiInvoke;
@@ -74,6 +81,19 @@ namespace InspectionView.App.ViewModels
                 }
             };
             Engine.Profiler.Recorded += _ => _profileDirty = true;
+            Engine.DisplayRequested += (value, window) =>
+            {
+                // 실행 스레드: UI 가 처리할 때까지 살아 있도록 AddRef
+                if (value is Core.Memory.IconicObject io)
+                    io.AddRef();
+                lock (_displayQueue)
+                    _displayQueue.Enqueue((value, window, false));
+            };
+            Engine.ClearWindowRequested += window =>
+            {
+                lock (_displayQueue)
+                    _displayQueue.Enqueue((null, window, true));
+            };
 
             BuildOperatorTree();
         }
@@ -415,6 +435,45 @@ namespace InspectionView.App.ViewModels
                     Variables.Add(item);
                 }
                 item.Update(value);
+            }
+
+            // 썸네일은 엔진이 멈춰 있을 때만 (실행 중에는 객체가 교체될 수 있음)
+            if (State != EngineState.Running)
+            {
+                foreach (var v in Variables)
+                {
+                    if (v.ThumbnailDirty)
+                        v.RefreshThumbnail();
+                }
+            }
+
+            // 스크립트 Display / ClearWindow
+            while (true)
+            {
+                (object? Value, int Window, bool Clear) req;
+                lock (_displayQueue)
+                {
+                    if (_displayQueue.Count == 0)
+                        break;
+                    req = _displayQueue.Dequeue();
+                }
+
+                if (req.Clear)
+                {
+                    ScriptClearWindowRequested?.Invoke(req.Window);
+                    continue;
+                }
+
+                try
+                {
+                    if (req.Value != null)
+                        ScriptDisplayRequested?.Invoke(req.Value, req.Window);
+                }
+                finally
+                {
+                    if (req.Value is Core.Memory.IconicObject io)
+                        io.Release();
+                }
             }
 
             if (_outputDirty)

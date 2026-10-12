@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
@@ -9,6 +10,7 @@ using AvalonDock.Themes;
 using ICSharpCode.AvalonEdit.CodeCompletion;
 using ICSharpCode.AvalonEdit.Rendering;
 using InspectionView.App.Editor;
+using InspectionView.App.Viewer;
 using InspectionView.App.ViewModels;
 using InspectionView.Core.Types;
 using InspectionView.Script.Runtime;
@@ -27,6 +29,8 @@ namespace InspectionView.App
         private readonly DiagnosticRenderer _diagnosticRenderer = new DiagnosticRenderer();
         private readonly DispatcherTimer _uiTimer;
         private readonly DispatcherTimer _parseTimer;
+        private readonly List<ImageViewer> _viewers = new List<ImageViewer>();
+        private ImageViewer _activeViewer = null!;
         private CompletionWindow? _completion;
         private OverloadInsightWindow? _insight;
         private bool _suppressDirty;
@@ -66,7 +70,10 @@ namespace InspectionView.App
             _vm.PropertyChanged += OnViewModelPropertyChanged;
             _vm.GoToLineRequested += GoToLine;
             _vm.DisplayRequested += ShowVariable;
-            Viewer.InsertRoiRequested += InsertRoi;
+            _vm.ScriptDisplayRequested += OnScriptDisplay;
+            _vm.ScriptClearWindowRequested += OnScriptClearWindow;
+            RegisterViewer(Viewer);
+            _activeViewer = Viewer;
 
             _uiTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
             _uiTimer.Tick += (s, e) => _vm.Tick();
@@ -260,31 +267,139 @@ namespace InspectionView.App
         }
 
         // ------------------------------------------------------------------
-        // 그래픽 창
+        // 그래픽 창 (여러 개; 마지막으로 클릭한 창이 활성 창)
         // ------------------------------------------------------------------
 
-        /// <summary>변수를 그래픽 창에 표시: Image 는 배경(오버레이 지움), Region/XLD/배열은 오버레이.</summary>
-        private void ShowVariable(VariableItem item)
+        private void RegisterViewer(ImageViewer viewer)
         {
-            if (_vm.State == EngineState.Running)
-                return;
+            _viewers.Add(viewer);
+            viewer.Activated += () => SetActiveViewer(viewer);
+            viewer.InsertRoiRequested += InsertRoi;
+            viewer.ImageChanged += () => { if (ReferenceEquals(viewer, _activeViewer)) RefreshAnalysis(); };
+            viewer.RoiChanged += _ => { if (ReferenceEquals(viewer, _activeViewer)) RefreshHistogram(); };
+            viewer.ProfileLineChanged += () => { if (ReferenceEquals(viewer, _activeViewer)) RefreshProfile(); };
+        }
 
-            switch (item.Raw)
+        private void SetActiveViewer(ImageViewer viewer)
+        {
+            if (ReferenceEquals(_activeViewer, viewer))
+                return;
+            _activeViewer = viewer;
+            _vm.StatusText = $"Active graphics window: {_viewers.IndexOf(viewer) + 1}";
+            RefreshAnalysis();
+        }
+
+        /// <summary>index 번 창을 돌려준다 (없으면 만든다).</summary>
+        private ImageViewer GetViewer(int index)
+        {
+            while (index >= _viewers.Count)
+                CreateGraphicsWindow();
+            return _viewers[index];
+        }
+
+        private ImageViewer CreateGraphicsWindow()
+        {
+            var viewer = new ImageViewer();
+            int number = _viewers.Count + 1;
+            var anchorable = new AvalonDock.Layout.LayoutAnchorable
+            {
+                Title = $"Graphics {number}",
+                ContentId = $"graphics{number}",
+                Content = viewer,
+                CanHide = false,
+            };
+            anchorable.Closed += (s, e) =>
+            {
+                _viewers.Remove(viewer);
+                viewer.SetImage(null);
+                if (ReferenceEquals(_activeViewer, viewer))
+                    SetActiveViewer(Viewer);
+            };
+            GraphicsPane.Children.Add(anchorable);
+            RegisterViewer(viewer);
+            anchorable.IsActive = true;
+            return viewer;
+        }
+
+        private void OnNewGraphicsWindow(object sender, RoutedEventArgs e)
+        {
+            var viewer = CreateGraphicsWindow();
+            SetActiveViewer(viewer);
+        }
+
+        private void OnCloseExtraGraphicsWindows(object sender, RoutedEventArgs e)
+        {
+            foreach (var v in _viewers.ToArray())
+            {
+                if (ReferenceEquals(v, Viewer))
+                    continue;
+                if (v.Parent is AvalonDock.Layout.LayoutAnchorable a)
+                    a.Close();
+                else if (Dock.Layout.Descendents().OfType<AvalonDock.Layout.LayoutAnchorable>().FirstOrDefault(x => ReferenceEquals(x.Content, v)) is AvalonDock.Layout.LayoutAnchorable b)
+                    b.Close();
+            }
+            SetActiveViewer(Viewer);
+        }
+
+        private void RefreshAnalysis()
+        {
+            RefreshHistogram();
+            RefreshProfile();
+        }
+
+        private void RefreshHistogram()
+        {
+            var v = _activeViewer;
+            Histogram.Update(v.CurrentImage, v.Roi);
+        }
+
+        private void RefreshProfile()
+        {
+            var v = _activeViewer;
+            if (v.ProfileLine.HasValue)
+                LineProfile.Update(v.CurrentImage, v.ProfileLine.Value.A, v.ProfileLine.Value.B);
+            else
+                LineProfile.Clear();
+        }
+
+        /// <summary>값을 지정 창에 표시: Image 는 배경(오버레이 지움), Region/XLD/배열은 오버레이.</summary>
+        private static void Display(ImageViewer viewer, object? value, string name)
+        {
+            switch (value)
             {
                 case Image img:
-                    Viewer.ClearOverlays();
-                    Viewer.SetImage(img);
+                    viewer.ClearOverlays();
+                    viewer.SetImage(img);
                     break;
                 case ObjectArray<Image> arr when arr.Count > 0:
-                    Viewer.ClearOverlays();
-                    Viewer.SetImage(arr[0]);
+                    viewer.ClearOverlays();
+                    viewer.SetImage(arr[0]);
                     break;
                 case Region _:
                 case XldContour _:
                 case IObjectArray _:
-                    Viewer.AddOverlay(item.Raw, item.Name);
+                    viewer.AddOverlay(value, name);
                     break;
             }
+        }
+
+        /// <summary>변수창 선택 / 자동 표시 → 활성 창.</summary>
+        private void ShowVariable(VariableItem item)
+        {
+            if (_vm.State == EngineState.Running)
+                return;
+            Display(_activeViewer, item.Raw, item.Name);
+        }
+
+        private void OnScriptDisplay(object value, int window) => Display(GetViewer(window), value, "Display");
+
+        private void OnScriptClearWindow(int window)
+        {
+            var v = GetViewer(window);
+            v.ClearOverlays();
+            v.ClearRoi();
+            v.ClearProfileLine();
+            v.SetImage(null);
         }
 
         private void InsertRoi(RectI roi)

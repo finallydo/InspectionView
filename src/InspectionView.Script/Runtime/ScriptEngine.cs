@@ -100,6 +100,13 @@ namespace InspectionView.Script.Runtime
         public event Action<ScriptRuntimeException>? ErrorOccurred;
         public event Action<string>? Output;
 
+        /// <summary>스크립트의 Display(Value, Window). 실행 스레드에서 발생하며, 값은 호출이 끝나면 해제될 수 있으므로
+        /// 보관하려면 핸들러 안에서 AddRef 해야 한다.</summary>
+        public event Action<object?, int>? DisplayRequested;
+
+        /// <summary>스크립트의 ClearWindow(Window).</summary>
+        public event Action<int>? ClearWindowRequested;
+
         public ScriptEngine(OperatorRegistry? registry = null, BackendSettings? settings = null)
         {
             Registry = registry ?? OperatorRegistry.Default;
@@ -385,6 +392,8 @@ namespace InspectionView.Script.Runtime
         }
 
         void IScriptHost.Print(string text) => Output?.Invoke(text);
+        void IScriptHost.Display(object? value, int window) => DisplayRequested?.Invoke(value, window);
+        void IScriptHost.ClearWindow(int window) => ClearWindowRequested?.Invoke(window);
 
         public void Dispose()
         {

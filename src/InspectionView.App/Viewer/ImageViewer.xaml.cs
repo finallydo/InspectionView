@@ -38,6 +38,7 @@ namespace InspectionView.App.Viewer
         private readonly List<OverlayLayer> _overlays = new List<OverlayLayer>();
         private readonly List<OverlayLayer> _garbage = new List<OverlayLayer>();
         private OverlayLayer? _roiLayer;
+        private OverlayLayer? _profileLayer;
         private int _colorIndex;
 
         // 뷰 변환: 화면(논리 px) = (이미지 좌표 - View) * Zoom
@@ -49,6 +50,7 @@ namespace InspectionView.App.Viewer
         private double _dragViewX, _dragViewY;
         private bool _panning;
         private bool _roiDragging;
+        private bool _profileDragging;
         private PointD _roiAnchor;
 
         /// <summary>그려진 ROI (이미지 좌표, 배타 경계). 없으면 null.</summary>
@@ -58,6 +60,20 @@ namespace InspectionView.App.Viewer
 
         /// <summary>'Insert ROI' 버튼: 스크립트에 넣어 달라는 요청.</summary>
         public event Action<RectI>? InsertRoiRequested;
+
+        /// <summary>프로파일 선분 (이미지 좌표). 없으면 null.</summary>
+        public (PointD A, PointD B)? ProfileLine { get; private set; }
+
+        public event Action? ProfileLineChanged;
+
+        /// <summary>표시 이미지가 바뀜 (SetImage 직후, 업로드 전).</summary>
+        public event Action? ImageChanged;
+
+        /// <summary>사용자가 이 창을 클릭함 (활성 그래픽 창 선택용).</summary>
+        public event Action? Activated;
+
+        /// <summary>표시 중(또는 업로드 대기 중)인 이미지. 뷰어가 AddRef 로 소유하므로 읽기에 안전하다.</summary>
+        public Image? CurrentImage => _pendingImage ?? _image;
 
         public double Zoom => _zoom;
         public bool HasImage => _image != null;
@@ -106,6 +122,7 @@ namespace InspectionView.App.Viewer
                     _fitOnNextImage = true;
             }
             Invalidate();
+            ImageChanged?.Invoke();
         }
 
         /// <summary>Region / XLD / 객체 배열을 오버레이로 추가한다.</summary>
@@ -135,6 +152,28 @@ namespace InspectionView.App.Viewer
                 _roiLayer = null;
             }
             Roi = null;
+            Invalidate();
+        }
+
+        public void ClearProfileLine()
+        {
+            if (_profileLayer != null)
+            {
+                _garbage.Add(_profileLayer);
+                _profileLayer = null;
+            }
+            ProfileLine = null;
+            ProfileLineChanged?.Invoke();
+            Invalidate();
+        }
+
+        public void SetProfileLine(PointD a, PointD b)
+        {
+            if (_profileLayer != null)
+                _garbage.Add(_profileLayer);
+            ProfileLine = (a, b);
+            _profileLayer = OverlayLayer.FromLine(a, b, OverlayColor.Profile);
+            ProfileLineChanged?.Invoke();
             Invalidate();
         }
 
@@ -214,7 +253,7 @@ namespace InspectionView.App.Viewer
                     _texture.Draw();
                 }
 
-                if (_overlays.Count > 0 || _roiLayer != null)
+                if (_overlays.Count > 0 || _roiLayer != null || _profileLayer != null)
                 {
                     _colorShader!.Use();
                     GL.UniformMatrix4(_uColorProj, 1, false, proj);
@@ -223,6 +262,7 @@ namespace InspectionView.App.Viewer
                     foreach (var layer in _overlays)
                         layer.Draw(_uColor);
                     _roiLayer?.Draw(_uColor);
+                    _profileLayer?.Draw(_uColor);
                     GL.Disable(EnableCap.Blend);
                 }
             }
@@ -334,6 +374,7 @@ namespace InspectionView.App.Viewer
         private void OnMouseDown(object sender, MouseButtonEventArgs e)
         {
             Focus();
+            Activated?.Invoke();
             var p = e.GetPosition(Surface);
 
             if (e.ChangedButton == MouseButton.Left && e.ClickCount == 2)
@@ -346,6 +387,15 @@ namespace InspectionView.App.Viewer
             {
                 _roiDragging = true;
                 _roiAnchor = ScreenToImage(p);
+                Surface.CaptureMouse();
+                return;
+            }
+
+            if (e.ChangedButton == MouseButton.Left && ProfileButton.IsChecked == true && _image != null)
+            {
+                _profileDragging = true;
+                _roiAnchor = ScreenToImage(p);
+                SetProfileLine(_roiAnchor, _roiAnchor);
                 Surface.CaptureMouse();
                 return;
             }
@@ -374,16 +424,21 @@ namespace InspectionView.App.Viewer
             {
                 SetRoi(MakeRect(_roiAnchor, ScreenToImage(p)));
             }
+            else if (_profileDragging)
+            {
+                SetProfileLine(_roiAnchor, ScreenToImage(p));
+            }
 
             UpdateInfo(p);
         }
 
         private void OnMouseUp(object sender, MouseButtonEventArgs e)
         {
-            if (_panning || _roiDragging)
+            if (_panning || _roiDragging || _profileDragging)
             {
                 _panning = false;
                 _roiDragging = false;
+                _profileDragging = false;
                 Surface.ReleaseMouseCapture();
             }
         }
@@ -449,6 +504,9 @@ namespace InspectionView.App.Viewer
         // ------------------------------------------------------------------
         // 툴바
         // ------------------------------------------------------------------
+
+        private void OnRoiChecked(object sender, RoutedEventArgs e) => ProfileButton.IsChecked = false;
+        private void OnProfileChecked(object sender, RoutedEventArgs e) => RoiButton.IsChecked = false;
 
         private void OnFit(object sender, RoutedEventArgs e) => FitToWindow();
         private void OnActualSize(object sender, RoutedEventArgs e) => ActualSize();

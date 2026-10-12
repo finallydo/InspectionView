@@ -342,6 +342,37 @@ Region = Threshold(Part, 128, 255)
         }
 
         [Fact]
+        public void Display_RaisesHostEvents_WithLiveObjects()
+        {
+            using var e = NewEngine();
+            var shown = new List<(string type, int window, bool disposed)>();
+            var cleared = new List<int>();
+            e.DisplayRequested += (v, w) => shown.Add((ScriptValues.TypeName(v), w, v is Core.Memory.IconicObject io && io.IsDisposed));
+            e.ClearWindowRequested += w => cleared.Add(w);
+
+            var img = MakeTestImage();
+            e.Variables.Set("Img", img);
+            img.Release();
+
+            Assert.True(e.Load("ClearWindow()\nDisplay(Img)\nR = Threshold(Img, 128, 255)\nDisplay(R, 1)\nDisplay(Threshold(Img, 0, 10), 2)\n"));
+            e.Run();
+            e.WaitForBreak(10000);
+
+            Assert.Equal(EngineState.Finished, e.State);
+            Assert.Equal(new[] { 0 }, cleared);
+            Assert.Equal(3, shown.Count);
+            Assert.Equal(("Image", 0, false), shown[0]);
+            Assert.Equal(("Region", 1, false), shown[1]);
+            Assert.Equal(("Region", 2, false), shown[2]);     // 임시 객체도 호출 시점에는 살아 있다
+
+            var bad = NewEngine();
+            Assert.True(bad.Load("Display(1, -1)\n"));
+            bad.Run();
+            bad.WaitForBreak(10000);
+            Assert.Equal(EngineState.Error, bad.State);
+        }
+
+        [Fact]
         public void Load_RejectsSyntaxErrors_AndReportsLines()
         {
             using var e = NewEngine();

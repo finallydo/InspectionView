@@ -46,7 +46,7 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 - `if / elseif / else / endif`, `for I = A to B by S ... endfor`, `while ... endwhile`, `break`, `continue`
 - 연산자: `+ - * / %`, `== != < <= > >=`, `and or not` (`&& || !` 도 허용). `/` 는 항상 실수 나눗셈
 - 값은 Tuple(숫자/문자열/불리언, 원소별 연산 + 브로드캐스트), 아이코닉 객체, 결과 객체
-- 내장 함수(PascalCase): Len, Abs, Sqrt, Round, Floor, Ceil, Int, Real, Str, Min, Max, Sum, Mean, Print, TypeOf
+- 내장 함수(PascalCase): Len, Abs, Sqrt, Round, Floor, Ceil, Int, Real, Str, Min, Max, Sum, Mean, Print, TypeOf, Display(Value, Window=0), ClearWindow(Window=0)
 - 실행 모델: AST → 평탄화된 명령 리스트(`Compilation/Instruction`) → PC 기반 인터프리터. 브레이크포인트/한 줄 실행/PC 이동은 `ScriptEngine` 이 담당
 
 ## 확정 요구사항 (요약)
@@ -64,6 +64,6 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 ## 로드맵
 1. ~~1차 연산자 6개 (Cpu + Parallel) 와 테스트~~ (완료)
 2. ~~Script 렉서/파서/인터프리터, 브레이크포인트, 백그라운드 실행/중지~~ (완료)
-3. ~~App: 도킹 레이아웃, 에디터, 변수창, 연산자 트리, OpenGL 뷰어(타일/밉맵, 오버레이, ROI)~~ (완료) → 라인 프로파일/히스토그램, 썸네일, 다중 그래픽 창, 2.5D 3D 보기는 이후
+3. ~~App: 도킹 레이아웃, 에디터, 변수창(썸네일), 연산자 트리, OpenGL 뷰어(타일/밉맵, 오버레이, ROI, 프로파일), 히스토그램/라인 프로파일, 다중 그래픽 창~~ (완료) → 2.5D 3D 보기는 이후
 4. Runtime: Job zip, 터미널 바인딩, C++/CLI 브리지
 5. 카메라 플러그인, GPU 연산자, 2.5D

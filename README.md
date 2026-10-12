@@ -29,7 +29,8 @@ InspectionView/
 │  ├─ InspectionView.Script/          [net8.0; net48]  스크립트: Lexing/Parsing(AST) → Compilation(명령 리스트) → Runtime(인터프리터, ScriptEngine)
 │  ├─ InspectionView.Runtime/         [net8.0; net48]  Job 패키지 manifest (zip 입출력/실행기는 다음 단계)
 │  └─ InspectionView.App/             [net8.0-windows WPF]  IDE: 도킹 레이아웃, 에디터(하이라이트/브레이크포인트/자동완성), 변수창, 연산자 트리,
-│                                     출력/오류/프로파일, Viewer/(OpenGL 뷰어: 타일+밉맵, Region/XLD 오버레이, 줌/팬, ROI)
+│                                     출력/오류/타이밍, Viewer/(OpenGL 뷰어: 타일+밉맵, Region/XLD 오버레이, 줌/팬, ROI, 프로파일 선,
+│                                     히스토그램/라인 프로파일 창, 다중 그래픽 창), 변수창 썸네일
 ├─ tests/
 │  ├─ InspectionView.Core.Tests/      xunit (Region 집합연산, Image/Mat 상호운용, 레지스트리, 연산자)
 │  └─ InspectionView.Script.Tests/    xunit (렉서/파서/컴파일러/엔진)
@@ -106,6 +107,5 @@ Image = ReadImage('C:/img/a.png')
 ```
 
 ## 다음 단계
-1. App: 라인 프로파일/히스토그램, 변수창 썸네일, 다중 그래픽 창
-2. Runtime: Job zip 입출력, 입출력 터미널 바인딩, C++/CLI 브리지
-3. 카메라 공통 인터페이스 + 벤더 플러그인, 2.5D 연산자군
+1. Runtime: Job zip 입출력, 입출력 터미널 바인딩, C++/CLI 브리지
+2. 카메라 공통 인터페이스 + 벤더 플러그인, 2.5D 연산자군

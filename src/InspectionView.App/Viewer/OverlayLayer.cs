@@ -40,6 +40,7 @@ namespace InspectionView.App.Viewer
         };
 
         public static OverlayColor Roi => new OverlayColor(1f, 0.9f, 0.1f, 1f);
+        public static OverlayColor Profile => new OverlayColor(0.3f, 0.8f, 1f, 1f);
     }
 
     /// <summary>
@@ -102,6 +103,13 @@ namespace InspectionView.App.Viewer
             float x0 = rect.X, y0 = rect.Y, x1 = rect.Right, y1 = rect.Bottom;
             var v = new float[] { x0, y0, x1, y0, x1, y1, x0, y1 };
             return new OverlayLayer(name, color, PrimitiveType.LineLoop, v) { LineWidth = 1.5f };
+        }
+
+        /// <summary>선분 (프로파일 라인 등). 좌표는 이미지 픽셀 단위.</summary>
+        public static OverlayLayer FromLine(PointD a, PointD b, OverlayColor color, string name = "Line")
+        {
+            var v = new float[] { (float)a.X, (float)a.Y, (float)b.X, (float)b.Y };
+            return new OverlayLayer(name, color, PrimitiveType.Lines, v) { LineWidth = 1.5f };
         }
 
         /// <summary>값(Region / XLD / 객체 배열)을 층 목록으로 바꾼다. 배열은 원소마다 다른 색.</summary>

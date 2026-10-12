@@ -9,7 +9,8 @@
                 <Button Click="OnFit" ToolTip="Fit image to window (double-click)">Fit</Button>
                 <Button Click="OnActualSize" ToolTip="Zoom 1:1">1:1</Button>
                 <Separator />
-                <ToggleButton x:Name="RoiButton" ToolTip="Draw a rectangle ROI with the left mouse button">ROI</ToggleButton>
+                <ToggleButton x:Name="RoiButton" ToolTip="Draw a rectangle ROI with the left mouse button" Checked="OnRoiChecked">ROI</ToggleButton>
+                <ToggleButton x:Name="ProfileButton" ToolTip="Drag a line to show its gray value profile" Checked="OnProfileChecked">Profile</ToggleButton>
                 <Button Click="OnInsertRoi" ToolTip="Insert 'GenRectangle1' for the drawn ROI into the script">Insert ROI</Button>
                 <Button Click="OnClearRoi">Clear ROI</Button>
                 <Separator />
