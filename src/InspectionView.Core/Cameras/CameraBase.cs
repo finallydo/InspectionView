@@ -45,7 +45,7 @@ namespace InspectionView.Core.Cameras
 
         // ------------------------------------------------------------------ 파라미터
 
-        public IReadOnlyList<CameraParameterInfo> Parameters => _paramInfos;
+        public virtual IReadOnlyList<CameraParameterInfo> Parameters => _paramInfos;
 
         protected void RegisterParameter(CameraParameterInfo info, Func<object?> getter, Action<object?>? setter = null)
         {
@@ -58,13 +58,22 @@ namespace InspectionView.Core.Cameras
             }
         }
 
+        /// <summary>등록된(공통) 파라미터인지. 벤더 구현이 SDK 노드로 넘기기 전에 확인한다.</summary>
+        protected bool HasRegisteredParameter(string name)
+        {
+            lock (_lock) return _params.ContainsKey(name ?? "");
+        }
+
+        /// <summary>등록된 파라미터 목록 (벤더 구현이 SDK 노드 목록과 합칠 때 사용).</summary>
+        protected IReadOnlyList<CameraParameterInfo> RegisteredParameters => _paramInfos;
+
         public CameraParameterInfo? FindParameter(string name)
         {
             lock (_lock)
                 return _paramInfos.Find(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
         }
 
-        public object? GetParameter(string name)
+        public virtual object? GetParameter(string name)
         {
             ThrowIfClosed();
             (Func<object?> get, Action<object?>? set) entry;
@@ -76,7 +85,7 @@ namespace InspectionView.Core.Cameras
             return entry.get();
         }
 
-        public void SetParameter(string name, object? value)
+        public virtual void SetParameter(string name, object? value)
         {
             ThrowIfClosed();
             (Func<object?> get, Action<object?>? set) entry;

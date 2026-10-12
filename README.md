@@ -27,7 +27,8 @@ InspectionView/
 │  │                 Morphology, Regions(집합/특징/생성/ShapeTrans/Paint), Images, Xld(EdgesSubPix, 피팅, 변환),
 │  │                 Measure(MeasurePos), Matching(CreateNccModel, FindNccModel),
 │  │                 Surface(2.5D: PhotometricStereo, FocusMeasure/DepthFromFocus, ExtractLaserLine/MeasureProfileSheetOfLight/
-│  │                 DisparityToHeight, PhaseShiftDecode, ComposeIllumination)
+│  │                 DisparityToHeight, PhaseShiftDecode, ComposeIllumination), Camera(InfoFramegrabber, OpenFramegrabber, GrabImage ...)
+│  │  └─ Cameras/    ICameraProvider / ICamera / CameraBase, CameraRegistry, File·Simulation 카메라, CameraFrames(버퍼 변환)
 │  ├─ InspectionView.Native/          [C++ DLL]  GPU 백엔드 (CUDA 옵션, 없으면 device_count = 0)
 │  ├─ InspectionView.Script/          [net8.0; net48]  스크립트: Lexing/Parsing(AST) → Compilation(명령 리스트) → Runtime(인터프리터, ScriptEngine)
 │  ├─ InspectionView.Runtime/         [net8.0; net48]  Job 패키지(.ivjob) 입출력, JobRunner(터미널 바인딩), InspectionJob(검사 프로그램 API)
@@ -39,7 +40,11 @@ InspectionView/
 │  ├─ InspectionView.Core.Tests/      xunit (Region 집합연산, Image/Mat 상호운용, 레지스트리, 연산자)
 │  ├─ InspectionView.Script.Tests/    xunit (렉서/파서/컴파일러/엔진)
 │  └─ InspectionView.Runtime.Tests/   xunit (Job 패키지, 러너, 파사드)
-└─ plugins/                           연산자 플러그인 DLL 폴더 (실행 시 Plugins/ 로 복사)
+└─ plugins/                           플러그인 프로젝트 (App 빌드 후 출력의 Plugins/ 로 복사)
+   ├─ InspectionView.Cameras.Pylon/        Basler pylon (PYLON_DEV_DIR 가 있으면 SDK 와 컴파일, 없으면 '사용 불가' 스텁)
+   ├─ InspectionView.Cameras.Spinnaker/    FLIR/Teledyne Spinnaker (Program Files\Teledyne|FLIR Systems\Spinnaker 자동 탐색)
+   ├─ InspectionView.Cameras.Hikrobot/     Hikrobot MVS (MVCAM_SDK_PATH)
+   └─ InspectionView.Cameras.FrameGrabbers/ Euresys / Matrox / Dalsa 스텁
 ```
 
 ## 빌드
@@ -121,5 +126,17 @@ if (result.Success) long count = result.GetTuple("Count").L();
 ```
 MFC(C++) 에서는 `src/InspectionView.Bridge/ivbridge.h` 의 C API 를 쓴다 (`ivb_job_load` → `ivb_job_set_image` → `ivb_job_run` → `ivb_job_get_doubles`).
 
+## 카메라
+```
+Cam = OpenFramegrabber('Simulation')                        // 또는 'File', 'C:/images/*.png', 'Loop=true' / 'Pylon', '<serial>'
+SetFramegrabberParam(Cam, 'ExposureTime', 2000)
+Image = GrabImage(Cam)                                      // 동기 1장
+GrabImageStart(Cam)                                         // 연속 취득
+Live = GrabImageAsync(Cam)                                  // 최근 프레임
+CloseFramegrabber(Cam)
+```
+IDE 의 Camera 창에서 공급자/장치를 골라 열고 Snap(변수로) / Live(활성 그래픽 창) / 파라미터 편집, Bind 로 스크립트 변수(`Cam`)에 연결할 수 있다.
+벤더 SDK 는 빌드 시 자동 탐색된다 (msbuild 출력의 `InspectionView.Cameras.*: SDK true/false` 로 확인). 다른 경로면 `-p:IVPylonAssembly=...`, `-p:IVSpinnakerAssembly=...`, `-p:IVMvsAssembly=...`.
+
 ## 다음 단계
-1. 카메라 공통 인터페이스 + 벤더 플러그인, GPU 연산자, 노드 UI(Nodify)
+1. GPU 연산자, 노드 UI(Nodify), AutoFocus, 위상 언래핑

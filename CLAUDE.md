@@ -24,6 +24,7 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 | src/InspectionView.Script | net8.0; net48 | 스크립트 AST / 파서 / 인터프리터 |
 | src/InspectionView.Runtime | net8.0; net48 | Job 패키지(.ivjob zip: manifest.json/script.ivs/params/roi/models) `JobPackage`, `JobDocument`, 동기 실행기 `JobRunner`(터미널 바인딩, 에러 코드), 검사 프로그램 API `InspectionJob` |
 | src/InspectionView.Bridge | C++/CLI DLL (net48) | MFC 용 C API (`ivbridge.h`: ivb_job_load/set_image/run/get_*). "C++/CLI 지원" 구성 요소 필요. CI 는 best-effort, 솔루션 빌드 시 `-p:IVSkipBridge=true` 로 건너뛸 수 있음 |
+| plugins/InspectionView.Cameras.* | net8.0 | 카메라 벤더 플러그인 (Pylon, Spinnaker, Hikrobot, FrameGrabbers 스텁). SDK 가 빌드 PC 에 있을 때만 실제 코드가 컴파일되고(`IV_HAS_*`), 없으면 "사용 불가" 공급자. App 빌드 후 `Plugins/` 로 복사 |
 | src/InspectionView.App | net8.0-windows WPF | IDE: `MainViewModel`(엔진 소유, 이벤트를 UI 타이머로 모아 반영), `Editor/`(하이라이트, 브레이크포인트 여백, 실행 줄/오류 렌더러, 자동완성), AvalonDock 레이아웃. 이후 OpenTK GLWpfControl, Nodify |
 | tests/InspectionView.Core.Tests | net8.0 xunit | Core 단위 테스트 |
 | tests/InspectionView.Script.Tests | net8.0 xunit | 렉서/파서/컴파일러/엔진 테스트 |
@@ -43,6 +44,7 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 - 뷰어(`App/Viewer`): OpenTK 4 + GLWpfControl, GL 3.3. 실기(Intel UHD 630 + AvalonDock)에서 확인된 필수 사항 세 가지: (1) AvalonDock 이 창 내용을 Unloaded/Loaded 시키므로 GLWpfControl 은 Loaded 마다 새로 만들고 GL 자원을 다시 올린다, (2) 다시 그리기는 CompositionTarget.Rendering 에서 직접 InvalidateVisual 한다, (3) 프레임 끝에 GL.Flush+GL.Finish 가 없으면 D3D 공유 표면에 첫 프레임만 올라온다. 모든 GL 호출은 Render 콜백 안에서만 (업로드/삭제는 pending 큐로 미룸). 이미지는 `ImageTextureSet`(≤4096 타일 + 밉맵), 오버레이는 `OverlayLayer`(원본 객체를 참조하지 않음). 셰이더/OpenGL 오류는 CI 가 못 잡으므로 PC 에서 확인 필요.
 - Job: manifest 는 DataContractJsonSerializer(net48 호환, 외부 의존 없음). 리소스(ROI/모델/파라미터)는 실행 시 같은 이름의 변수로 로드된다. `JobRunner` 는 인스턴스당 한 스레드, 예외 대신 `JobResult.Code`.
 - 2.5D(`Operators/Surface`): 스택 입력은 `ObjectArray<Image>` (스크립트에서 `[Img1, Img2, ...]` 로 전달 가능). `StackOps.Validate/ToFloat/ForRows` 로 검증·Float32 변환·행 병렬화. 좌표 규약: 위치는 픽셀 인덱스(픽셀 중심 = 정수), 기울기 GradientX = dz/dcol, GradientY = dz/drow, 높이 z 는 카메라 쪽이 +. 라인/디스패리티의 "없음" 은 -1.
+- 카메라(`Core/Cameras`): `ICameraProvider`(이름, IsAvailable, Enumerate, Open) + `ICamera`. 구현은 `CameraBase` 상속 (`RegisterParameter` 로 파라미터 테이블, `GrabCore(timeout)` 가 새 Image 반환, 연속 취득은 기본 스레드 루프 또는 SDK 콜백에서 `PublishFrame`). 스크립트 핸들은 `CameraHandle`(IconicObject). 벤더 코드는 `#if IV_HAS_PYLON` 등으로 감싸고 csproj 가 SDK 경로(`PYLON_DEV_DIR`, `MVCAM_SDK_PATH`, Spinnaker 설치 폴더)를 찾아 정의한다. 벤더 구현은 **미검증** (SDK 있는 PC 에서 확인 필요). 프레임 변환은 `CameraFrames.FromPixelFormat/FromBayer/FromRgb8`.
 - 예외 정책: 연산자는 `VisionException` 만 던진다. 런타임 API 는 `OperatorInvoker.Invoke` / `TryExecute` 로 에러 코드를 반환한다.
 
 ## 스크립트 문법 (확정)
@@ -73,4 +75,5 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 4. ~~Runtime: Job zip, 터미널 바인딩, C# API, C++/CLI 브리지, IDE Job 메뉴/터미널 창~~ (완료)
 5. 연산자 확장 ~~1차 필터/산술/모폴로지/영역~~, ~~2차 에지/XLD(EdgesSubPix, 피팅, 변환), MeasurePos, NCC 매칭, ListFiles~~ (완료). 미구현: 회전/스케일 매칭(shape model), 1D 측정 쌍(MeasurePairs), 캘리브레이션
 6. ~~2.5D 연산자군 (`Operators/Surface`): PhotometricStereo(기울기/알베도/Frankot-Chellappa 높이), FocusMeasure + DepthFromFocus(FocusOps 공유, AutoFocus 도 사용), ExtractLaserLine / MeasureProfileSheetOfLight / DisparityToHeight, PhaseShiftDecode(위상 천이 디코딩), ComposeIllumination(조명 합성)~~ (완료). 미구현: 위상 언래핑, 시트오브라이트 기하 캘리브레이션, 3D 높이맵 보기
-7. 카메라 인터페이스/플러그인 → GPU(CUDA) → 노드 UI(Nodify)
+7. ~~카메라: 공통 인터페이스(`Core/Cameras`), File/Simulation 카메라, 프레임그래버 연산자(InfoFramegrabber, OpenFramegrabber, GrabImage, GrabImageStart/Stop/Async, Set/GetFramegrabberParam, CloseFramegrabber), IDE Camera 창(스냅/라이브/파라미터), 벤더 플러그인 Pylon/Spinnaker/Hikrobot(SDK 조건부 컴파일, 미검증) + Euresys/Matrox/Dalsa 스텁~~ (완료)
+8. GPU(CUDA) 연산자 → 노드 UI(Nodify) → AutoFocus(FocusMeasure + 카메라 루프), 위상 언래핑, 시트오브라이트 캘리브레이션

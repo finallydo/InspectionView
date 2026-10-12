@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>InspectionView.Cameras.FrameGrabbers</RootNamespace>
+    <Description>Frame grabber providers (Euresys eGrabber, Matrox MIL, Teledyne Dalsa Sapera): skeletons that report 'unavailable' until the SDK bindings are integrated.</Description>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>InspectionView.Cameras.Spinnaker</RootNamespace>
+    <Description>FLIR/Teledyne Spinnaker camera provider. Compiled against SpinnakerNET only when the SDK is installed, otherwise a stub.</Description>
+    <!-- 설치 폴더 자동 탐색 (FLIR Systems 또는 Teledyne). 다른 위치면 -p:IVSpinnakerAssembly=<경로\SpinnakerNET_v140.dll> -->
+    <IVSpinnakerDir Condition="'$(IVSpinnakerDir)' == '' And Exists('$(ProgramFiles)\Teledyne\Spinnaker')">$(ProgramFiles)\Teledyne\Spinnaker</IVSpinnakerDir>
+    <IVSpinnakerDir Condition="'$(IVSpinnakerDir)' == '' And Exists('$(ProgramFiles)\FLIR Systems\Spinnaker')">$(ProgramFiles)\FLIR Systems\Spinnaker</IVSpinnakerDir>
+    <IVSpinnakerAssembly Condition="'$(IVSpinnakerAssembly)' == '' And '$(IVSpinnakerDir)' != '' And Exists('$(IVSpinnakerDir)\bin64\vs2015\SpinnakerNET_v140.dll')">$(IVSpinnakerDir)\bin64\vs2015\SpinnakerNET_v140.dll</IVSpinnakerAssembly>
+    <IVSpinnakerAssembly Condition="'$(IVSpinnakerAssembly)' == '' And '$(IVSpinnakerDir)' != '' And Exists('$(IVSpinnakerDir)\bin64\vs2015\SpinnakerNET.dll')">$(IVSpinnakerDir)\bin64\vs2015\SpinnakerNET.dll</IVSpinnakerAssembly>
+    <IVHasSpinnaker Condition="'$(IVSpinnakerAssembly)' != '' And Exists('$(IVSpinnakerAssembly)')">true</IVHasSpinnaker>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IVHasSpinnaker)' == 'true'">
+    <DefineConstants>$(DefineConstants);IV_HAS_SPINNAKER</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IVHasSpinnaker)' == 'true'">
+    <Reference Include="SpinnakerNET">
+      <HintPath>$(IVSpinnakerAssembly)</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="SpinnakerNET.GenApi" Condition="Exists('$([System.IO.Path]::GetDirectoryName($(IVSpinnakerAssembly)))\SpinnakerNET.GenApi_v140.dll')">
+      <HintPath>$([System.IO.Path]::GetDirectoryName($(IVSpinnakerAssembly)))\SpinnakerNET.GenApi_v140.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="IVReportSpinnaker" BeforeTargets="CoreCompile">
+    <Message Importance="high" Text="InspectionView.Cameras.Spinnaker: SDK $([MSBuild]::ValueOrDefault('$(IVHasSpinnaker)', 'false')) ($(IVSpinnakerAssembly))" />
+  </Target>
+
+</Project>

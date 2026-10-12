@@ -1,0 +1,11 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+  <!-- 카메라 플러그인 공통: net8.0, Core 참조(복사 안 함), App 이 빌드 후 Plugins/ 로 복사 -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IVPluginsRoot>$(MSBuildThisFileDirectory)</IVPluginsRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\src\InspectionView.Core\InspectionView.Core.csproj" Private="false" />
+  </ItemGroup>
+</Project>

@@ -25,4 +25,20 @@
     <ProjectReference Include="..\InspectionView.Runtime\InspectionView.Runtime.csproj" />
   </ItemGroup>
 
+  <!-- 카메라 플러그인: 먼저 빌드되도록 참조(어셈블리 참조는 안 함)하고 출력 폴더의 Plugins/ 로 복사 -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\plugins\InspectionView.Cameras.Pylon\InspectionView.Cameras.Pylon.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\..\plugins\InspectionView.Cameras.Spinnaker\InspectionView.Cameras.Spinnaker.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\..\plugins\InspectionView.Cameras.Hikrobot\InspectionView.Cameras.Hikrobot.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\..\plugins\InspectionView.Cameras.FrameGrabbers\InspectionView.Cameras.FrameGrabbers.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+
+  <Target Name="IVCopyPlugins" AfterTargets="Build">
+    <ItemGroup>
+      <IVPluginFile Include="..\..\plugins\*\bin\x64\$(Configuration)\net8.0\*.dll" Exclude="..\..\plugins\*\bin\x64\$(Configuration)\net8.0\InspectionView.Core.dll;..\..\plugins\*\bin\x64\$(Configuration)\net8.0\OpenCvSharp*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(IVPluginFile)" DestinationFolder="$(OutDir)Plugins" SkipUnchangedFiles="true" ContinueOnError="true" />
+    <Message Importance="high" Text="Copied @(IVPluginFile->Count()) plugin file(s) to $(OutDir)Plugins" />
+  </Target>
+
 </Project>

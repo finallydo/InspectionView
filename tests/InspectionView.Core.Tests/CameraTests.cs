@@ -195,6 +195,30 @@ namespace InspectionView.Core.Tests
             Assert.Equal(ErrorCode.CameraProviderNotFound, noProvider.Code);
         }
 
+        /// <summary>플러그인 DLL 의 공급자처럼 스캔되는 테스트용 공급자 (SDK 없음 → 사용 불가).</summary>
+        public sealed class FakeVendorProvider : ICameraProvider
+        {
+            public string Name => "FakeVendor";
+            public bool IsAvailable => false;
+            public string? UnavailableReason => "no SDK";
+            public System.Collections.Generic.IReadOnlyList<CameraInfo> Enumerate() => Array.Empty<CameraInfo>();
+            public ICamera Open(string deviceId, System.Collections.Generic.IReadOnlyDictionary<string, string> options) => throw new NotSupportedException();
+        }
+
+        [Fact]
+        public void Registry_ScansAssemblyForProviders_AndReportsUnavailable()
+        {
+            var registry = new CameraRegistry();
+            Assert.Equal(1, registry.ScanAssembly(typeof(CameraTests).Assembly));
+            Assert.Equal(0, registry.ScanAssembly(typeof(CameraTests).Assembly));      // 중복 스캔 안 함
+            var p = registry.Find("fakevendor");
+            Assert.NotNull(p);
+            Assert.False(p!.IsAvailable);
+            var ex = Assert.Throws<VisionException>(() => registry.Open("FakeVendor", ""));
+            Assert.Equal(ErrorCode.CameraSdkNotAvailable, ex.Code);
+            Assert.Empty(registry.EnumerateAll());
+        }
+
         [Fact]
         public void CameraHandle_ClosesDeviceOnLastRelease()
         {
