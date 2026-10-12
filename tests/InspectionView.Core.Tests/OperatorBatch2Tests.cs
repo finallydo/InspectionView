@@ -132,7 +132,7 @@ namespace InspectionView.Core.Tests
             // 열 20..29 가 밝은 세로 띠
             using var img = Square(48, 20, 0, 10, 48);
 
-            var m = Exec("MeasurePos", img, 16.0, 16.0, 0.0, 12.0, 2.0, 1.0, 30.0);
+            var m = Exec("MeasurePos", img, 16.0, 16.0, 0.0, 16.0, 2.0, 1.0, 30.0);
             var cols = Out<TupleValue>(m, "ColumnEdge").ToDoubleArray();
             var amps = Out<TupleValue>(m, "Amplitude").ToDoubleArray();
             Assert.Equal(2, cols.Length);
@@ -142,13 +142,13 @@ namespace InspectionView.Core.Tests
             Assert.InRange(Out<TupleValue>(m, "Distance").D(), 9.6, 10.4);
             Assert.All(Out<TupleValue>(m, "RowEdge").ToDoubleArray(), r => Assert.Equal(16.0, r, 6));
 
-            var neg = Exec("MeasurePos", img, 16.0, 16.0, 0.0, 12.0, 2.0, 1.0, 30.0, "Negative");
+            var neg = Exec("MeasurePos", img, 16.0, 16.0, 0.0, 16.0, 2.0, 1.0, 30.0, "Negative");
             Assert.Single(Out<TupleValue>(neg, "ColumnEdge"));
-            var first = Exec("MeasurePos", img, 16.0, 16.0, 0.0, 12.0, 2.0, 1.0, 30.0, "All", "First");
+            var first = Exec("MeasurePos", img, 16.0, 16.0, 0.0, 16.0, 2.0, 1.0, 30.0, "All", "First");
             Assert.InRange(Out<TupleValue>(first, "ColumnEdge").D(), 19.2, 19.8);
 
             // 반대 방향(Phi = pi)으로 재면 부호가 바뀐다
-            var back = Exec("MeasurePos", img, 16.0, 16.0, Math.PI, 12.0, 2.0, 1.0, 30.0);
+            var back = Exec("MeasurePos", img, 16.0, 16.0, Math.PI, 16.0, 2.0, 1.0, 30.0);
             var backAmps = Out<TupleValue>(back, "Amplitude").ToDoubleArray();
             Assert.True(backAmps[0] < 0);
 
@@ -164,7 +164,9 @@ namespace InspectionView.Core.Tests
             for (int y = 30; y < 40; y++)
                 for (int x = 40; x < 50; x++)
                     img.SetPixel(x, y, 200);
-            img.SetPixel(45, 35, 150);                                   // 두 번째 패턴은 약간 다름
+            for (int y = 34; y < 37; y++)                                // 두 번째 패턴은 가운데 3x3 이 비어 있음
+                for (int x = 44; x < 47; x++)
+                    img.SetPixel(x, y, 0);
 
             using var roi = Region.FromRectangle(new RectI(8, 8, 14, 14));
             using var model = Out<NccModel>(Exec("CreateNccModel", img, roi), "Model");
