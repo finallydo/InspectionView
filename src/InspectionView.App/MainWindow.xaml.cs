@@ -278,6 +278,7 @@ namespace InspectionView.App
             _viewers.Add(viewer);
             viewer.Activated += () => SetActiveViewer(viewer);
             viewer.RenderError += message => _vm.ReportViewerError($"Graphics {_viewers.IndexOf(viewer) + 1}: {message}");
+            viewer.Log += message => _vm.LogViewer($"Graphics {_viewers.IndexOf(viewer) + 1}: {message}");
             viewer.InsertRoiRequested += InsertRoi;
             viewer.ImageChanged += () => { if (ReferenceEquals(viewer, _activeViewer)) RefreshAnalysis(); };
             viewer.RoiChanged += _ => { if (ReferenceEquals(viewer, _activeViewer)) RefreshHistogram(); };

@@ -50,7 +50,7 @@ namespace InspectionView.App.Viewer
     /// </summary>
     public sealed class OverlayLayer : IDisposable
     {
-        private float[]? _vertices;
+        private readonly float[] _vertices;
         private int _vao;
         private int _vbo;
 
@@ -137,7 +137,7 @@ namespace InspectionView.App.Viewer
             if (!Visible || VertexCount == 0)
                 return;
 
-            if (_vao == 0 && _vertices != null)
+            if (_vao == 0)
             {
                 _vao = GL.GenVertexArray();
                 _vbo = GL.GenBuffer();
@@ -147,16 +147,20 @@ namespace InspectionView.App.Viewer
                 GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, 2 * sizeof(float), 0);
                 GL.EnableVertexAttribArray(0);
                 GL.BindVertexArray(0);
-                _vertices = null;
             }
-            if (_vao == 0)
-                return;
 
             GL.Uniform4(colorUniform, Color.R, Color.G, Color.B, Color.A);
             GL.LineWidth(LineWidth);
             GL.BindVertexArray(_vao);
             GL.DrawArrays(Mode, 0, VertexCount);
             GL.BindVertexArray(0);
+        }
+
+        /// <summary>GL 컨텍스트가 바뀌어 기존 버퍼가 무효해졌을 때: 다음 Draw 에서 다시 올린다 (GL 호출 없음).</summary>
+        public void ResetGl()
+        {
+            _vao = 0;
+            _vbo = 0;
         }
 
         public void Dispose()
@@ -168,7 +172,6 @@ namespace InspectionView.App.Viewer
                 _vao = 0;
                 _vbo = 0;
             }
-            _vertices = null;
         }
     }
 }

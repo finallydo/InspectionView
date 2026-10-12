@@ -1,7 +1,6 @@
 <UserControl x:Class="InspectionView.App.Viewer.ImageViewer"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:gl="clr-namespace:OpenTK.Wpf;assembly=GLWpfControl"
              Focusable="True">
     <DockPanel>
         <ToolBarTray DockPanel.Dock="Top">
@@ -27,7 +26,7 @@
             </StatusBarItem>
         </StatusBar>
         <Grid x:Name="Surface" Background="#FF303030" ClipToBounds="True">
-            <gl:GLWpfControl x:Name="Gl" />
+            <!-- GLWpfControl 은 코드에서 생성한다 (AvalonDock 이 Unloaded/Loaded 를 반복시켜도 살아 있도록) -->
             <Border x:Name="ErrorPanel" Visibility="Collapsed" Background="#CC402020" BorderBrush="#FFFF6060" BorderThickness="1"
                     VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="8" Padding="8">
                 <TextBlock x:Name="ErrorText" Foreground="White" FontFamily="Consolas" TextWrapping="Wrap" />

@@ -24,6 +24,9 @@ namespace InspectionView.App.Viewer
     /// </summary>
     public partial class ImageViewer : UserControl
     {
+        private GLWpfControl? _gl;
+        private int _contextGeneration;
+        private long _frameCount;
         private GlShader? _imageShader;
         private GlShader? _colorShader;
         private int _uImageProj, _uTex, _uChannels, _uScale, _uOffset;
@@ -36,6 +39,9 @@ namespace InspectionView.App.Viewer
 
         /// <summary>OpenGL 단계에서 예외가 났을 때 (메시지). 출력 창 기록용.</summary>
         public event Action<string>? RenderError;
+
+        /// <summary>진단 로그 (GL 컨텍스트 생성 등).</summary>
+        public event Action<string>? Log;
 
         private Image? _image;              // 표시 중인 이미지 (AddRef 됨)
         private Image? _pendingImage;       // 다음 렌더에서 업로드할 이미지 (AddRef 됨)
@@ -89,17 +95,81 @@ namespace InspectionView.App.Viewer
         {
             InitializeComponent();
 
-            // RenderContinuously = false 로 두면 InvalidateVisual() 로는 다시 그려지지 않는 경우가 있어
-            // (휠/Fit 뒤 화면이 그대로) 매 프레임 렌더링한다. 2D 뷰어라 비용은 작다.
-            Gl.Start(new GLWpfControlSettings { MajorVersion = 3, MinorVersion = 3, RenderContinuously = true });
-            Gl.Render += OnRender;
-            Gl.SizeChanged += (s, e) => Invalidate();
+            // AvalonDock 은 레이아웃을 만들 때 내용을 떼었다 붙이므로(Unloaded → Loaded) GLWpfControl 의 렌더러가
+            // 죽을 수 있다. Loaded 마다 GL 컨트롤을 새로 만들고 GL 자원은 새 컨텍스트에 다시 올린다.
+            Loaded += (s, e) => CreateGlControl();
+            Unloaded += (s, e) => DestroyGlControl();
 
             Surface.MouseWheel += OnMouseWheel;
             Surface.MouseDown += OnMouseDown;
             Surface.MouseMove += OnMouseMove;
             Surface.MouseUp += OnMouseUp;
             Surface.MouseLeave += (s, e) => InfoText.Text = "";
+        }
+
+        // ------------------------------------------------------------------
+        // GL 컨트롤 수명
+        // ------------------------------------------------------------------
+
+        private void CreateGlControl()
+        {
+            if (_gl != null)
+                return;
+
+            // 이전 컨텍스트의 자원은 모두 무효 (GL 호출 없이 참조만 버린다)
+            _imageShader = null;
+            _colorShader = null;
+            _texture = null;
+            _garbage.Clear();
+            foreach (var layer in _overlays) layer.ResetGl();
+            _roiLayer?.ResetGl();
+            _profileLayer?.ResetGl();
+            _boundsLayer?.ResetGl();
+            _glFailed = false;
+            _contextGeneration++;
+
+            // 표시 중이던 이미지는 다시 업로드
+            if (_image != null && _pendingImage == null && !_image.IsDisposed)
+            {
+                _image.AddRef();
+                _pendingImage = _image;
+            }
+
+            var gl = new GLWpfControl();
+            Surface.Children.Insert(0, gl);
+            try
+            {
+                // RenderContinuously = false 로 두면 InvalidateVisual() 로 다시 그려지지 않는 경우가 있어 매 프레임 그린다.
+                gl.Start(new GLWpfControlSettings { MajorVersion = 3, MinorVersion = 3, RenderContinuously = true });
+            }
+            catch (Exception ex)
+            {
+                Surface.Children.Remove(gl);
+                ShowError("OpenGL start failed: " + ex.Message);
+                return;
+            }
+            gl.Render += OnRender;
+            _gl = gl;
+            Log?.Invoke($"GL control created (context #{_contextGeneration})");
+        }
+
+        private void DestroyGlControl()
+        {
+            var gl = _gl;
+            if (gl == null)
+                return;
+            gl.Render -= OnRender;
+            Surface.Children.Remove(gl);
+            _gl = null;
+            Log?.Invoke($"GL control released (context #{_contextGeneration}, {_frameCount} frames)");
+        }
+
+        private void ShowError(string message)
+        {
+            _glFailed = true;
+            ErrorText.Text = message;
+            ErrorPanel.Visibility = Visibility.Visible;
+            RenderError?.Invoke(message);
         }
 
         // ------------------------------------------------------------------
@@ -225,7 +295,7 @@ namespace InspectionView.App.Viewer
             Invalidate();
         }
 
-        public void Invalidate() => Gl.InvalidateVisual();
+        public void Invalidate() => _gl?.InvalidateVisual();
 
         // ------------------------------------------------------------------
         // 렌더링 (GL 컨텍스트 안)
@@ -239,7 +309,11 @@ namespace InspectionView.App.Viewer
             string phase = "init";
             try
             {
+                bool first = _imageShader == null;
                 EnsureShaders();
+                if (first)
+                    Log?.Invoke($"GL context #{_contextGeneration} ready: {_glInfo}");
+                _frameCount++;
                 phase = "upload";
                 ProcessPending();
 
@@ -289,11 +363,7 @@ namespace InspectionView.App.Viewer
             }
             catch (Exception ex)
             {
-                _glFailed = true;
-                var message = $"OpenGL {phase} failed: {ex.GetType().Name}: {ex.Message}\n{_glInfo}";
-                ErrorText.Text = message;
-                ErrorPanel.Visibility = Visibility.Visible;
-                RenderError?.Invoke(message);
+                ShowError($"OpenGL {phase} failed: {ex.GetType().Name}: {ex.Message}\n{_glInfo}");
             }
         }
 

@@ -754,6 +754,13 @@ namespace InspectionView.App.ViewModels
                 ResultsRequested?.Invoke(items);
         }
 
+        /// <summary>뷰어 진단 로그를 출력 창에 기록한다.</summary>
+        public void LogViewer(string message)
+        {
+            AppendOutput("[graphics] " + message);
+            Tick();
+        }
+
         /// <summary>뷰어 OpenGL 오류를 출력 창과 상태줄에 기록한다.</summary>
         public void ReportViewerError(string message)
         {
