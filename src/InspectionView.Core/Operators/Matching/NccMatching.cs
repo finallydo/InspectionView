@@ -117,8 +117,8 @@ namespace InspectionView.Core.Operators.Matching
                             {
                                 if (warped.Cols > sw || warped.Rows > sh) continue;
                                 canvasSizes[idx] = warped.Size();
-                                bool identity = angles[ai] == 0 && scales[si] == 1;
-                                if (identity) Cv2.MatchTemplate(search, warped, result, TemplateMatchModes.CCoeffNormed);
+                                // 마스크는 회전으로 캔버스에 빈 모서리가 생길 때만 (스케일만 바뀌면 전체가 유효)
+                                if (NccMatching.IsFull(mask)) Cv2.MatchTemplate(search, warped, result, TemplateMatchModes.CCoeffNormed);
                                 else Cv2.MatchTemplate(search, warped, result, TemplateMatchModes.CCoeffNormed, mask);
 
                                 // result 는 (sw-cw+1, sh-ch+1): 캔버스 좌상단 기준. 중심 기준으로 비교하기 위해 캔버스 중심 오프셋만큼 옮겨 기록
@@ -242,6 +242,9 @@ namespace InspectionView.Core.Operators.Matching
             }
         }
 
+        /// <summary>마스크가 전부 유효한지 (그러면 마스크 없이 매칭하는 편이 정확하고 빠르다).</summary>
+        public static bool IsFull(Mat mask) => Cv2.CountNonZero(mask) == mask.Rows * mask.Cols;
+
         /// <summary>result(캔버스 좌상단 기준) 를 중심 오프셋만큼 옮겨 best/bestIdx 에 반영한다.</summary>
         public static void UpdateBest(Mat result, Mat best, Mat bestIdx, int idx, int ox, int oy)
         {
@@ -275,7 +278,8 @@ namespace InspectionView.Core.Operators.Matching
                 using (var roi = new Mat(search, new Rect(x0, y0, warped.Cols, warped.Rows)))
                 using (var result = new Mat())
                 {
-                    Cv2.MatchTemplate(roi, warped, result, TemplateMatchModes.CCoeffNormed, mask);
+                    if (IsFull(mask)) Cv2.MatchTemplate(roi, warped, result, TemplateMatchModes.CCoeffNormed);
+                    else Cv2.MatchTemplate(roi, warped, result, TemplateMatchModes.CCoeffNormed, mask);
                     float v = result.At<float>(0, 0);
                     return float.IsNaN(v) ? -1 : v;
                 }
