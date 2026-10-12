@@ -130,9 +130,20 @@ namespace InspectionView.Core.Tests
             Assert.Equal(5, model.Scales().Length);
 
             using var search = Rotate(template, 0, 1.2);
+
+            // 진단: 스케일을 고정한 모델들의 점수 (1.2 가 가장 높아야 한다)
+            var diag = new System.Text.StringBuilder();
+            foreach (double sc in new[] { 0.8, 1.0, 1.2 })
+            {
+                using var fixedModel = Out<NccModel>(Exec("CreateNccModel", template, roi, 0.0, 0.0, 0.0, sc, sc, 0.0), "Model");
+                var ff = Exec("FindNccModel", search, fixedModel, 0.0, 1, 0.5);
+                var sco = Out<TupleValue>(ff, "Score");
+                diag.Append($"scale {sc}: score {(sco.IsEmpty ? "none" : sco.D().ToString("F4"))} at ({(sco.IsEmpty ? "-" : Out<TupleValue>(ff, "Row").D().ToString("F2"))},{(sco.IsEmpty ? "-" : Out<TupleValue>(ff, "Column").D().ToString("F2"))}); ");
+            }
+
             var f = Exec("FindNccModel", search, model, 0.6, 1, 0.5);
             Assert.Single(Out<TupleValue>(f, "Row"));
-            Assert.InRange(Out<TupleValue>(f, "Scale").D(), 1.15, 1.25);
+            Assert.True(Math.Abs(Out<TupleValue>(f, "Scale").D() - 1.2) < 0.05, $"scale {Out<TupleValue>(f, "Scale").D()} score {Out<TupleValue>(f, "Score").D():F4}; {diag}");
             Assert.InRange(Out<TupleValue>(f, "Row").D(), 30.5, 33.5);
             Assert.InRange(Out<TupleValue>(f, "Column").D(), 30.5, 33.5);
         }
