@@ -53,6 +53,13 @@ namespace InspectionView.Core.Cameras
             RegisterParameter(new CameraParameterInfo("TriggerSoftware", CameraParameterType.Command, "No-op software trigger."), () => null, v => { });
             RegisterParameter(new CameraParameterInfo("FocusPosition", CameraParameterType.Float, "Simulated lens position; frames are blurred by |FocusPosition - TrueFocus| / 10 px.", min: 0, max: 100), () => _focus, v => _focus = (double)v!);
             RegisterParameter(new CameraParameterInfo("TrueFocus", CameraParameterType.Float, "Lens position that gives a sharp image.", min: 0, max: 100), () => _trueFocus, v => _trueFocus = (double)v!);
+
+            // 나머지 옵션은 파라미터 이름으로 적용 (예: TrueFocus=37, ExposureTime=500)
+            foreach (var kv in options)
+            {
+                if (!HasRegisteredParameter(kv.Key)) continue;
+                try { SetParameter(kv.Key, kv.Value); } catch { /* 잘못된 옵션은 무시 */ }
+            }
         }
 
         private double _exposure = 10000;
