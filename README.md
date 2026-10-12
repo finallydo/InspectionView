@@ -27,7 +27,8 @@ InspectionView/
 │  │                 Morphology, Regions(집합/특징/생성/ShapeTrans/Paint), Images, Xld(EdgesSubPix, 피팅, 변환),
 │  │                 Measure(MeasurePos), Matching(CreateNccModel, FindNccModel),
 │  │                 Surface(2.5D: PhotometricStereo, FocusMeasure/DepthFromFocus, ExtractLaserLine/MeasureProfileSheetOfLight/
-│  │                 DisparityToHeight, PhaseShiftDecode, ComposeIllumination), Camera(InfoFramegrabber, OpenFramegrabber, GrabImage ...)
+│  │                 DisparityToHeight, PhaseShiftDecode, UnwrapPhase, ComposeIllumination), Camera(InfoFramegrabber, OpenFramegrabber,
+│  │                 GrabImage ..., AutoFocus)
 │  │  └─ Cameras/    ICameraProvider / ICamera / CameraBase, CameraRegistry, File·Simulation 카메라, CameraFrames(버퍼 변환)
 │  ├─ InspectionView.Native/          [C++ DLL]  GPU 백엔드 (CUDA 옵션, 없으면 device_count = 0)
 │  ├─ InspectionView.Script/          [net8.0; net48]  스크립트: Lexing/Parsing(AST) → Compilation(명령 리스트) → Runtime(인터프리터, ScriptEngine)
@@ -146,4 +147,4 @@ IDE 의 Camera 창에서 공급자/장치를 골라 열고 Snap(변수로) / Liv
 Nodes 탭(Nodify)에서 같은 스크립트를 노드 그래프로 편집한다. From Script 로 에디터 내용을 그래프로 읽고(연산자 호출 대입문만, if/for 가 있으면 스크립트 모드), 연산자 트리 더블클릭으로 노드 추가, 포트 드래그로 연결, 노드 안에서 리터럴 편집, To Script / Run 으로 다시 스크립트로 쓴다. 노드 위치는 각 줄 끝의 `// @node x,y` 주석에 저장된다.
 
 ## 다음 단계
-1. AutoFocus, 위상 언래핑, CUDA 커널, 영역 연산자 GPU 경로
+1. 시트오브라이트 캘리브레이션, CUDA 커널, 영역 연산자 GPU 경로, 3D 높이맵 보기, shape 매칭/MeasurePairs

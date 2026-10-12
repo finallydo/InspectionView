@@ -51,9 +51,12 @@ namespace InspectionView.Core.Cameras
             RegisterParameter(new CameraParameterInfo("Noise", CameraParameterType.Float, "Additive noise amplitude (gray values).", min: 0, max: 255), () => _noise, v => _noise = (double)v!);
             RegisterParameter(new CameraParameterInfo("ExposureTime", CameraParameterType.Float, "Dummy exposure time (us).", min: 1, max: 1e7), () => _exposure, v => _exposure = (double)v!);
             RegisterParameter(new CameraParameterInfo("TriggerSoftware", CameraParameterType.Command, "No-op software trigger."), () => null, v => { });
+            RegisterParameter(new CameraParameterInfo("FocusPosition", CameraParameterType.Float, "Simulated lens position; frames are blurred by |FocusPosition - TrueFocus| / 10 px.", min: 0, max: 100), () => _focus, v => _focus = (double)v!);
+            RegisterParameter(new CameraParameterInfo("TrueFocus", CameraParameterType.Float, "Lens position that gives a sharp image.", min: 0, max: 100), () => _trueFocus, v => _trueFocus = (double)v!);
         }
 
         private double _exposure = 10000;
+        private double _focus = 50, _trueFocus = 50;
 
         private void ApplyFps() => FrameIntervalMs = _fps > 0 ? (int)Math.Round(1000.0 / _fps) : 0;
 
@@ -82,6 +85,24 @@ namespace InspectionView.Core.Cameras
                     if (_noise > 0) v += (_random.NextDouble() * 2 - 1) * _noise;
                     row[x] = (byte)(v < 0 ? 0 : v > 255 ? 255 : v);
                 }
+            }
+            double sigma = Math.Abs(_focus - _trueFocus) / 10.0;
+            if (sigma > 0.05)
+            {
+                var blurred = new Image(w, h, PixelType.UInt8, 1);
+                try
+                {
+                    using (var src = InspectionView.Core.Interop.MatInterop.AsMat(img))
+                    using (var dst = InspectionView.Core.Interop.MatInterop.AsMat(blurred, forWrite: true))
+                        OpenCvSharp.Cv2.GaussianBlur(src, dst, new OpenCvSharp.Size(0, 0), sigma, sigma, OpenCvSharp.BorderTypes.Reflect101);
+                }
+                catch
+                {
+                    blurred.Release();
+                    throw;
+                }
+                img.Release();
+                img = blurred;
             }
             img.Metadata["FrameId"] = n;
             img.Metadata["Timestamp"] = DateTime.UtcNow;

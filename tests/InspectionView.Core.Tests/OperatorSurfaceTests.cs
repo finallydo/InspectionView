@@ -306,6 +306,34 @@ namespace InspectionView.Core.Tests
                 Assert.True(Math.Abs(WrapDiff(phase.GetPixel(x, 1), phi(x, 1))) < 1e-3, $"x={x}");
         }
 
+        [Fact]
+        public void UnwrapPhase_RecoversContinuousPhase_AndHonorsQuality()
+        {
+            const int w = 40, h = 30;
+            Func<int, int, double> phi = (x, y) => 0.3 * x + 0.1 * y;
+            using var wrapped = Float(w, h, (x, y) => Math.Atan2(Math.Sin(phi(x, y)), Math.Cos(phi(x, y))));
+
+            var r = Exec("UnwrapPhase", wrapped);
+            using var u = Out<Image>(r, "Unwrapped");
+            using var valid = Out<Region>(r, "Valid");
+            Assert.Equal((long)(w * h), valid.Area);
+            double offset = u.GetPixel(0, 0) - phi(0, 0);
+            for (int y = 0; y < h; y += 3)
+                for (int x = 0; x < w; x += 3)
+                    Assert.True(Math.Abs(u.GetPixel(x, y) - phi(x, y) - offset) < 1e-3, $"({x},{y}) {u.GetPixel(x, y)} vs {phi(x, y) + offset}");
+
+            // 품질이 낮은 블록은 건너뛴다
+            using var quality = Float(w, h, (x, y) => (x >= 10 && x < 15 && y >= 10 && y < 14) ? 0.0 : 1.0);
+            var r2 = Exec("UnwrapPhase", wrapped, quality, 0.5);
+            using var u2 = Out<Image>(r2, "Unwrapped");
+            using var valid2 = Out<Region>(r2, "Valid");
+            Assert.Equal((long)(w * h - 5 * 4), valid2.Area);
+            Assert.False(valid2.Contains(12, 11));
+            Assert.Equal(0.0, u2.GetPixel(12, 11));
+            double off2 = u2.GetPixel(0, 0) - phi(0, 0);
+            Assert.True(Math.Abs(u2.GetPixel(30, 20) - phi(30, 20) - off2) < 1e-3);
+        }
+
         // ---------------------------------------------------------------- Illumination fusion
 
         [Theory]

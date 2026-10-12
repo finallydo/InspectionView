@@ -227,6 +227,7 @@ namespace InspectionView.Script.Graph
                 {
                     node.X = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
                     node.Y = double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture);
+                    autoY = Math.Max(autoY, node.Y + 120);      // 배치 정보가 없는 다음 노드는 그 아래에
                 }
                 else
                 {

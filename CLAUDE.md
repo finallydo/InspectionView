@@ -80,4 +80,5 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 7. ~~카메라: 공통 인터페이스(`Core/Cameras`), File/Simulation 카메라, 프레임그래버 연산자(InfoFramegrabber, OpenFramegrabber, GrabImage, GrabImageStart/Stop/Async, Set/GetFramegrabberParam, CloseFramegrabber), IDE Camera 창(스냅/라이브/파라미터), 벤더 플러그인 Pylon/Spinnaker/Hikrobot(SDK 조건부 컴파일, 미검증) + Euresys/Matrox/Dalsa 스텁~~ (완료)
 8. ~~GPU: OpenCL(UMat) 백엔드 — 필터/산술/그레이 모폴로지/Rgb1ToGray 가 Gpu 백엔드 제공, 실제 백엔드가 타이밍 창에 표시~~ (완료). 미구현: CUDA 커널, Threshold/Connection 등 영역 연산자의 GPU 경로
 9. ~~노드 UI: `Script/Graph/GraphDocument`(스크립트 ↔ 그래프, `// @node x,y` 로 배치 저장) + App `Nodes/`(Nodify 편집기, Nodes 탭: From Script / To Script / Run / Auto Layout, 연산자 트리 더블클릭으로 노드 추가, 리터럴 편집, 타입/순환 검사)~~ (완료). 제한: 직선형 스크립트(연산자 호출 대입문)만 노드로 표현, if/for 가 있으면 스크립트 모드만
-10. AutoFocus(FocusMeasure + 카메라 루프), 위상 언래핑, 시트오브라이트 캘리브레이션, CUDA 커널, 영역 연산자 GPU
+10. ~~AutoFocus(카메라 파라미터 스캔 + FocusOps, Simulation 카메라의 FocusPosition/TrueFocus 로 테스트), UnwrapPhase(품질 유도 언래핑)~~ (완료)
+11. 남은 것: 시트오브라이트 기하 캘리브레이션, CUDA 커널, 영역 연산자 GPU, 3D 높이맵 보기, shape 매칭/MeasurePairs/카메라 캘리브레이션

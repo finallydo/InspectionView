@@ -220,6 +220,28 @@ namespace InspectionView.Core.Tests
         }
 
         [Fact]
+        public void AutoFocus_FindsSimulatedFocusPosition()
+        {
+            var open = ExecOk("OpenFramegrabber", "Simulation", "", "Width=96;Height=96;Pattern=Checker;TrueFocus=37");
+            using var cam = Out<CameraHandle>(open, "Camera");
+
+            var r = ExecOk("AutoFocus", cam, "FocusPosition", 0.0, 100.0, 11, 6);
+            double best = Out<TupleValue>(r, "BestPosition").D();
+            Assert.InRange(best, 34, 40);
+            Assert.InRange(Out<TupleValue>(ExecOk("GetFramegrabberParam", cam, "FocusPosition"), "Value").D(), best - 1e-6, best + 1e-6);
+            var positions = Out<TupleValue>(r, "Positions").ToDoubleArray();
+            var scores = Out<TupleValue>(r, "Scores").ToDoubleArray();
+            Assert.Equal(positions.Length, scores.Length);
+            Assert.InRange(positions.Length, 11, 18);
+            Assert.True(Out<TupleValue>(r, "BestScore").D() >= scores.Max() - 1e-9);
+            using var img = Out<Image>(r, "Image");
+            Assert.Equal(96, img.Width);
+
+            var bad = Exec("AutoFocus", cam, "FocusPosition", 50.0, 10.0);
+            Assert.Equal(ErrorCode.InvalidArgument, bad.Code);
+        }
+
+        [Fact]
         public void CameraHandle_ClosesDeviceOnLastRelease()
         {
             var cam = CameraRegistry.Default.Open("Simulation", "");
