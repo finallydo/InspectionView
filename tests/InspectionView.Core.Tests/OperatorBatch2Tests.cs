@@ -147,10 +147,14 @@ namespace InspectionView.Core.Tests
             var first = Exec("MeasurePos", img, 16.0, 16.0, 0.0, 16.0, 2.0, 1.0, 30.0, "All", "First");
             Assert.InRange(Out<TupleValue>(first, "ColumnEdge").D(), 19.2, 19.8);
 
-            // 반대 방향(Phi = pi)으로 재면 부호가 바뀐다
+            // 반대 방향(Phi = pi)으로 재면 29.5 쪽 에지를 먼저 만나고, 각 에지의 부호는 뒤집힌다
             var back = Exec("MeasurePos", img, 16.0, 16.0, Math.PI, 16.0, 2.0, 1.0, 30.0);
+            var backCols = Out<TupleValue>(back, "ColumnEdge").ToDoubleArray();
             var backAmps = Out<TupleValue>(back, "Amplitude").ToDoubleArray();
-            Assert.True(backAmps[0] < 0);
+            Assert.Equal(2, backCols.Length);
+            Assert.InRange(backCols[0], 29.2, 29.8);
+            Assert.InRange(backCols[1], 19.2, 19.8);
+            Assert.True(backAmps[0] > 0 && backAmps[1] < 0);
 
             // 세로 방향 측정(Phi = -pi/2 → 행 증가 방향)은 띠를 가로지르지 않으므로 에지 없음
             var none = Exec("MeasurePos", img, 16.0, 25.0, -Math.PI / 2, 10.0, 1.0, 1.0, 30.0);
