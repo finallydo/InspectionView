@@ -39,7 +39,7 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 - 새 연산자: `[Operator("Name", Category=...)]` 클래스 + `[Input]`/`[Output]` 프로퍼티 + `[Backend(BackendKind.Cpu|Parallel|Gpu)] void Run(OperatorContext ctx)`. 입력 검증은 `Validate()` 에서 `VisionException(ErrorCode)` 로. 최소 Cpu 백엔드는 항상 제공.
 - OpenCV 우선. 병목이면 `Parallel.For`(ctx.CreateParallelOptions()) 또는 직접 구현 허용.
 - WPF: 엔진 이벤트는 실행 스레드에서 오므로 뷰모델은 변경을 모아 두고 100ms DispatcherTimer(`MainViewModel.Tick`)에서 반영한다. UI 코드는 아이코닉 객체를 AddRef/Release 하지 않는다 (VariableTable 소유). 예외: `Viewer/ImageViewer` 는 표시 중인 Image 를 AddRef 해 소유한다.
-- 뷰어(`App/Viewer`): OpenTK 4 + GLWpfControl, GL 3.3 core. 모든 GL 호출은 Render 콜백 안에서만 (업로드/삭제는 pending 큐로 미룸). 이미지는 `ImageTextureSet`(≤4096 타일 + 밉맵), 오버레이는 `OverlayLayer`(원본 객체를 참조하지 않음). 셰이더/OpenGL 오류는 CI 가 못 잡으므로 PC 에서 확인 필요.
+- 뷰어(`App/Viewer`): OpenTK 4 + GLWpfControl, GL 3.3 core, RenderContinuously=true (false 면 InvalidateVisual 로 다시 그려지지 않음, 실기 확인됨). 모든 GL 호출은 Render 콜백 안에서만 (업로드/삭제는 pending 큐로 미룸). 이미지는 `ImageTextureSet`(≤4096 타일 + 밉맵), 오버레이는 `OverlayLayer`(원본 객체를 참조하지 않음). 셰이더/OpenGL 오류는 CI 가 못 잡으므로 PC 에서 확인 필요.
 - Job: manifest 는 DataContractJsonSerializer(net48 호환, 외부 의존 없음). 리소스(ROI/모델/파라미터)는 실행 시 같은 이름의 변수로 로드된다. `JobRunner` 는 인스턴스당 한 스레드, 예외 대신 `JobResult.Code`.
 - 예외 정책: 연산자는 `VisionException` 만 던진다. 런타임 API 는 `OperatorInvoker.Invoke` / `TryExecute` 로 에러 코드를 반환한다.
 

@@ -89,7 +89,9 @@ namespace InspectionView.App.Viewer
         {
             InitializeComponent();
 
-            Gl.Start(new GLWpfControlSettings { MajorVersion = 3, MinorVersion = 3, RenderContinuously = false });
+            // RenderContinuously = false 로 두면 InvalidateVisual() 로는 다시 그려지지 않는 경우가 있어
+            // (휠/Fit 뒤 화면이 그대로) 매 프레임 렌더링한다. 2D 뷰어라 비용은 작다.
+            Gl.Start(new GLWpfControlSettings { MajorVersion = 3, MinorVersion = 3, RenderContinuously = true });
             Gl.Render += OnRender;
             Gl.SizeChanged += (s, e) => Invalidate();
 
