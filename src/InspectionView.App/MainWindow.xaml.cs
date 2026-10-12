@@ -75,6 +75,7 @@ namespace InspectionView.App
             _vm.ResultsRequested += ShowResults;
             _vm.ScriptDisplayRequested += OnScriptDisplay;
             _vm.ScriptClearWindowRequested += OnScriptClearWindow;
+            _vm.Camera.LiveFrame += frame => Display(_activeViewer, frame, "Live");
             RegisterViewer(Viewer);
             _activeViewer = Viewer;
 
@@ -532,6 +533,36 @@ namespace InspectionView.App
         // ------------------------------------------------------------------
         // Job
         // ------------------------------------------------------------------
+
+        // ------------------------------------------------------------------
+        // Camera 창
+        // ------------------------------------------------------------------
+
+        private void OnCameraRefresh(object sender, RoutedEventArgs e) => _vm.Camera.RefreshProviders();
+        private void OnCameraOpen(object sender, RoutedEventArgs e) => _vm.Camera.Open();
+        private void OnCameraClose(object sender, RoutedEventArgs e) => _vm.Camera.Close();
+
+        private void OnCameraSnap(object sender, RoutedEventArgs e)
+        {
+            if (!_vm.CanRun)
+            {
+                _vm.StatusText = "Stop the script before snapping into a variable";
+                return;
+            }
+            if (_vm.Camera.Snap())
+                _vm.Tick();
+        }
+
+        private void OnCameraBind(object sender, RoutedEventArgs e)
+        {
+            if (!_vm.CanRun)
+            {
+                _vm.StatusText = "Stop the script before binding the camera variable";
+                return;
+            }
+            _vm.Camera.BindVariable();
+            _vm.Tick();
+        }
 
         private void OnNewJob(object sender, RoutedEventArgs e)
         {

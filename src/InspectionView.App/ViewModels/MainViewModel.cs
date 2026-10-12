@@ -134,7 +134,18 @@ namespace InspectionView.App.ViewModels
                     _displayQueue.Enqueue((null, window, true));
             };
 
+            Camera = new CameraViewModel(Engine.Variables, msg => { StatusText = msg; Log(msg); });
+
             BuildOperatorTree();
+        }
+
+        /// <summary>Camera 창 뷰모델.</summary>
+        public CameraViewModel Camera { get; }
+
+        private void Log(string message)
+        {
+            lock (_output) _output.AppendLine(message);
+            _outputDirty = true;
         }
 
         // ------------------------------------------------------------------
@@ -633,6 +644,8 @@ namespace InspectionView.App.ViewModels
         /// <summary>UI 타이머가 주기적으로 호출: 모아둔 변경을 반영한다.</summary>
         public void Tick()
         {
+            Camera.Tick();
+
             int line = _pendingLine;
             if (line != int.MinValue)
             {
@@ -787,6 +800,7 @@ namespace InspectionView.App.ViewModels
 
         public void Dispose()
         {
+            Camera.Dispose();
             Engine.Dispose();
             _job.Dispose();
         }

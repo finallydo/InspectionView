@@ -149,6 +149,62 @@
                                     </StackPanel>
                                 </ScrollViewer>
                             </ad:LayoutAnchorable>
+                            <ad:LayoutAnchorable Title="Camera" ContentId="camera" CanClose="False" CanHide="False">
+                                <DockPanel DataContext="{Binding Camera}" Margin="4">
+                                    <StackPanel DockPanel.Dock="Top">
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="Provider" Width="60" VerticalAlignment="Center" />
+                                            <Button DockPanel.Dock="Right" Padding="6,1" Click="OnCameraRefresh" ToolTip="Re-enumerate providers and devices">Refresh</Button>
+                                            <ComboBox ItemsSource="{Binding Providers}" SelectedItem="{Binding Provider}" IsEnabled="{Binding IsClosed}" />
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="Device" Width="60" VerticalAlignment="Center" />
+                                            <ComboBox ItemsSource="{Binding Devices}" Text="{Binding Device, UpdateSourceTrigger=PropertyChanged}" IsEditable="True" IsEnabled="{Binding IsClosed}" />
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="Options" Width="60" VerticalAlignment="Center" />
+                                            <TextBox Text="{Binding Options, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsClosed}" ToolTip="Key=Value;Key2=Value2" />
+                                        </DockPanel>
+                                        <TextBlock Text="{Binding Info}" TextWrapping="Wrap" Foreground="Gray" Margin="0,2,0,4" />
+                                        <WrapPanel Margin="0,2">
+                                            <Button Padding="8,1" Margin="0,0,4,2" Click="OnCameraOpen" IsEnabled="{Binding IsClosed}">Open</Button>
+                                            <Button Padding="8,1" Margin="0,0,4,2" Click="OnCameraClose" IsEnabled="{Binding IsOpen}">Close</Button>
+                                            <Button Padding="8,1" Margin="0,0,4,2" Click="OnCameraSnap" IsEnabled="{Binding IsOpen}" ToolTip="Grab one frame into the variable">Snap</Button>
+                                            <ToggleButton Padding="8,1" Margin="0,0,4,2" IsChecked="{Binding Live}" IsEnabled="{Binding IsOpen}" ToolTip="Continuous acquisition into the active graphics window">Live</ToggleButton>
+                                        </WrapPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="Image var" Width="60" VerticalAlignment="Center" />
+                                            <TextBox Text="{Binding VariableName, UpdateSourceTrigger=PropertyChanged}" />
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2">
+                                            <TextBlock Text="Handle var" Width="60" VerticalAlignment="Center" />
+                                            <Button DockPanel.Dock="Right" Padding="6,1" Click="OnCameraBind" IsEnabled="{Binding IsOpen}" ToolTip="Expose the open camera to the script as this variable (GrabImage(Cam))">Bind</Button>
+                                            <TextBox Text="{Binding HandleName, UpdateSourceTrigger=PropertyChanged}" />
+                                        </DockPanel>
+                                        <TextBlock Text="Parameters" FontWeight="Bold" Margin="0,6,0,2" />
+                                    </StackPanel>
+                                    <DataGrid ItemsSource="{Binding Parameters}" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                                              HeadersVisibility="Column" RowHeaderWidth="0" BorderThickness="0" FontSize="11">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" IsReadOnly="True" Width="110" />
+                                            <DataGridTextColumn Header="Value" Binding="{Binding Value, UpdateSourceTrigger=LostFocus}" Width="*">
+                                                <DataGridTextColumn.CellStyle>
+                                                    <Style TargetType="DataGridCell">
+                                                        <Setter Property="ToolTip" Value="{Binding Description}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsReadOnly}" Value="True">
+                                                                <Setter Property="Foreground" Value="Gray" />
+                                                                <Setter Property="IsEnabled" Value="False" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </DataGridTextColumn.CellStyle>
+                                            </DataGridTextColumn>
+                                            <DataGridTextColumn Header="Range" Binding="{Binding Range}" IsReadOnly="True" Width="90" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </DockPanel>
+                            </ad:LayoutAnchorable>
                             <ad:LayoutAnchorable Title="Operators" ContentId="operators" CanClose="False" CanHide="False">
                                 <TreeView x:Name="OperatorTreeView" ItemsSource="{Binding OperatorTree}"
                                           MouseDoubleClick="OnOperatorDoubleClick" BorderThickness="0">
