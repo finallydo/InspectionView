@@ -73,7 +73,8 @@ namespace InspectionView.Core.Tests
             Assert.Equal(img.Width, g.Width);
             Assert.Equal(PixelType.UInt8, g.PixelType);
             Assert.Equal(new RectI(0, 0, 16, 16), g.DomainBounds);
-            Assert.True(g.GetPixel(15, 15) > 0 && g.GetPixel(15, 15) < 200);   // 경계가 흐려짐
+            Assert.True(g.GetPixel(10, 15) > 0 && g.GetPixel(10, 15) < 200);   // 경계(x=10)가 흐려짐
+            Assert.InRange(g.GetPixel(15, 15), 190, 200);                      // 중심은 거의 그대로
             Assert.Equal(0, g.GetPixel(0, 0));
 
             using var m = Out<Image>(Exec("MeanFilter", img, 3, 3), "ImageResult");
@@ -344,7 +345,8 @@ namespace InspectionView.Core.Tests
             using var mean = Out<Image>(Exec("MeanFilter", img, 9, 9), "ImageResult");
 
             using var light = Out<Region>(Exec("DynThreshold", img, mean, 20, "Light"), "Region");
-            Assert.True(light.Contains(14, 14));
+            Assert.True(light.Contains(10, 14));                     // 사각형 안쪽 가장자리는 주변 평균보다 밝다
+            Assert.False(light.Contains(14, 14));                    // 평탄한 중심은 평균과 같다
             Assert.True(light.Contains(2, 2));
             Assert.False(light.Contains(0, 0));
 
@@ -356,7 +358,7 @@ namespace InspectionView.Core.Tests
             using var reduced = img.ReduceDomain(roi);
             using var inRoi = Out<Region>(Exec("DynThreshold", reduced, mean, 20, "Light"), "Region");
             Assert.True(inRoi.Contains(2, 2));
-            Assert.False(inRoi.Contains(14, 14));
+            Assert.False(inRoi.Contains(10, 14));                    // Domain 밖
         }
     }
 }
