@@ -36,10 +36,11 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 - 아이코닉 객체는 `IconicObject` 상속 (참조 카운트). 생성자는 소유권을 가지며, 전달/보관 시 `AddRef()`, 끝나면 `Release()`/`Dispose()`. 새로 만든 객체를 `ObjectArray` 에 넣을 때는 `AddOwned`.
 - 이미지 픽셀 접근은 `Image.GetRow<T>` / `MatInterop.AsMat` (복사 없음). `Mat` 을 Image 보다 오래 살려두지 않는다.
 - Region 은 불변. 마스크는 `ToMask()` 캐시를 쓰고 반환 Mat 을 수정/Dispose 하지 않는다.
+- 이미지→이미지 연산자는 `Operators/Common/ImageToImageOperator`(입력 `Image`, 출력 `ImageResult`, Cpu 백엔드 상속)를 상속하고 `ImageOps.Filter(src, (s, d) => Cv2.X(s, d, ...))` 로 구현한다 (결과는 입력 Domain 을 물려받음). Region 모폴로지/마스크 연산은 `RegionOps` 헬퍼(로컬 마스크 ↔ Region). 기반 클래스의 입력은 Order 로 순서를 고정한다.
 - 새 연산자: `[Operator("Name", Category=...)]` 클래스 + `[Input]`/`[Output]` 프로퍼티 + `[Backend(BackendKind.Cpu|Parallel|Gpu)] void Run(OperatorContext ctx)`. 입력 검증은 `Validate()` 에서 `VisionException(ErrorCode)` 로. 최소 Cpu 백엔드는 항상 제공.
 - OpenCV 우선. 병목이면 `Parallel.For`(ctx.CreateParallelOptions()) 또는 직접 구현 허용.
 - WPF: 엔진 이벤트는 실행 스레드에서 오므로 뷰모델은 변경을 모아 두고 100ms DispatcherTimer(`MainViewModel.Tick`)에서 반영한다. UI 코드는 아이코닉 객체를 AddRef/Release 하지 않는다 (VariableTable 소유). 예외: `Viewer/ImageViewer` 는 표시 중인 Image 를 AddRef 해 소유한다.
-- 뷰어(`App/Viewer`): OpenTK 4 + GLWpfControl, GL 3.3 core, RenderContinuously=true (false 면 InvalidateVisual 로 다시 그려지지 않음, 실기 확인됨). 모든 GL 호출은 Render 콜백 안에서만 (업로드/삭제는 pending 큐로 미룸). 이미지는 `ImageTextureSet`(≤4096 타일 + 밉맵), 오버레이는 `OverlayLayer`(원본 객체를 참조하지 않음). 셰이더/OpenGL 오류는 CI 가 못 잡으므로 PC 에서 확인 필요.
+- 뷰어(`App/Viewer`): OpenTK 4 + GLWpfControl, GL 3.3. 실기(Intel UHD 630 + AvalonDock)에서 확인된 필수 사항 세 가지: (1) AvalonDock 이 창 내용을 Unloaded/Loaded 시키므로 GLWpfControl 은 Loaded 마다 새로 만들고 GL 자원을 다시 올린다, (2) 다시 그리기는 CompositionTarget.Rendering 에서 직접 InvalidateVisual 한다, (3) 프레임 끝에 GL.Flush+GL.Finish 가 없으면 D3D 공유 표면에 첫 프레임만 올라온다. 모든 GL 호출은 Render 콜백 안에서만 (업로드/삭제는 pending 큐로 미룸). 이미지는 `ImageTextureSet`(≤4096 타일 + 밉맵), 오버레이는 `OverlayLayer`(원본 객체를 참조하지 않음). 셰이더/OpenGL 오류는 CI 가 못 잡으므로 PC 에서 확인 필요.
 - Job: manifest 는 DataContractJsonSerializer(net48 호환, 외부 의존 없음). 리소스(ROI/모델/파라미터)는 실행 시 같은 이름의 변수로 로드된다. `JobRunner` 는 인스턴스당 한 스레드, 예외 대신 `JobResult.Code`.
 - 예외 정책: 연산자는 `VisionException` 만 던진다. 런타임 API 는 `OperatorInvoker.Invoke` / `TryExecute` 로 에러 코드를 반환한다.
 
@@ -69,4 +70,5 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 2. ~~Script 렉서/파서/인터프리터, 브레이크포인트, 백그라운드 실행/중지~~ (완료)
 3. ~~App: 도킹 레이아웃, 에디터, 변수창(썸네일), 연산자 트리, OpenGL 뷰어(타일/밉맵, 오버레이, ROI, 프로파일), 히스토그램/라인 프로파일, 다중 그래픽 창~~ (완료) → 2.5D 3D 보기는 이후
 4. ~~Runtime: Job zip, 터미널 바인딩, C# API, C++/CLI 브리지, IDE Job 메뉴/터미널 창~~ (완료)
-5. 카메라 플러그인, GPU 연산자, 2.5D
+5. 연산자 확장 1차 ~~필터/산술/모폴로지/영역 집합·특징·생성~~ (완료) → 2차: 에지/XLD, 1D 측정, 템플릿 매칭, 폴더 순회
+6. 2.5D 연산자군 → 카메라 인터페이스/플러그인 → GPU(CUDA) → 노드 UI(Nodify)
