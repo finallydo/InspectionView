@@ -67,17 +67,17 @@ namespace InspectionView.Core.Tests
             Assert.InRange(Out<TupleValue>(last, "ColumnEdgeFirst").D(), 23.2, 23.8);
         }
 
-        /// <summary>64x64, 중심 (32,32) 에 24x24 'L' 모양 (비대칭이라 각도가 정해진다).</summary>
+        /// <summary>64x64, 중심 (32,32) 에 24x24 'L' 모양 (비대칭이라 각도가 정해진다). 반 픽셀 정렬 차이에 덜 민감하도록 살짝 흐림.</summary>
         private static Image LShape()
         {
-            var img = Image.Create(64, 64, PixelType.UInt8, 1, clear: true);
+            using var img = Image.Create(64, 64, PixelType.UInt8, 1, clear: true);
             for (int y = 20; y < 44; y++)
                 for (int x = 20; x < 44; x++)
                 {
                     bool bar = x < 28 || y >= 36;
                     img.SetPixel(x, y, bar ? 200 : 30);
                 }
-            return img;
+            return Out<Image>(Exec("GaussFilter", img, 1.0), "ImageResult");
         }
 
         private static Image Rotate(Image src, double degrees, double scale = 1.0)

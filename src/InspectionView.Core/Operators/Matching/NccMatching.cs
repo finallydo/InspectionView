@@ -121,8 +121,8 @@ namespace InspectionView.Core.Operators.Matching
                                 if (NccMatching.IsFull(mask)) Cv2.MatchTemplate(search, warped, result, TemplateMatchModes.CCoeffNormed);
                                 else Cv2.MatchTemplate(search, warped, result, TemplateMatchModes.CCoeffNormed, mask);
 
-                                // result 는 (sw-cw+1, sh-ch+1): 캔버스 좌상단 기준. 중심 기준으로 비교하기 위해 캔버스 중심 오프셋만큼 옮겨 기록
-                                int ox = warped.Cols / 2, oy = warped.Rows / 2;
+                                // result 는 (sw-cw+1, sh-ch+1): 캔버스 좌상단 기준. 중심 기준으로 비교하기 위해 캔버스 중심(인덱스) 오프셋만큼 옮겨 기록
+                                int ox = (warped.Cols - 1) / 2, oy = (warped.Rows - 1) / 2;
                                 NccMatching.UpdateBest(result, best, bestIdx, idx, ox, oy);
                             }
                         }
@@ -169,10 +169,10 @@ namespace InspectionView.Core.Operators.Matching
                             }
                         }
 
-                        // best 맵은 캔버스의 정수 중심 기준이므로 홀수 크기의 반 픽셀을 보정해 모델 원점(실수 중심)으로
+                        // best 맵은 캔버스의 정수 중심(인덱스) 기준. 실수 중심과의 차이와, 인덱스 → 픽셀 경계 좌표(+0.5) 보정
                         var cs = canvasSizes[idx];
-                        rows[i] = box.Y + sy + (cs.Height / 2.0 - cs.Height / 2);
-                        cols[i] = box.X + sx + (cs.Width / 2.0 - cs.Width / 2);
+                        rows[i] = box.Y + sy + ((cs.Height - 1) / 2.0 - (cs.Height - 1) / 2) + 0.5;
+                        cols[i] = box.X + sx + ((cs.Width - 1) / 2.0 - (cs.Width - 1) / 2) + 0.5;
                         angs[i] = angle;
                         scls[i] = scale;
                         scores[i] = score;
@@ -227,10 +227,11 @@ namespace InspectionView.Core.Operators.Matching
             double c = Math.Abs(Math.Cos(angle)), s = Math.Abs(Math.Sin(angle));
             int cw = (int)Math.Ceiling((w * c + h * s) * scale);
             int ch = (int)Math.Ceiling((w * s + h * c) * scale);
-            using (var m = Cv2.GetRotationMatrix2D(new Point2f(w / 2f, h / 2f), angle * 180 / Math.PI, scale))
+            // 픽셀 인덱스 좌표계: 템플릿의 인덱스 중심 ((w-1)/2, (h-1)/2) 을 캔버스의 인덱스 중심으로 보낸다
+            using (var m = Cv2.GetRotationMatrix2D(new Point2f((w - 1) / 2f, (h - 1) / 2f), angle * 180 / Math.PI, scale))
             {
-                m.Set(0, 2, m.At<double>(0, 2) + cw / 2.0 - w / 2.0);
-                m.Set(1, 2, m.At<double>(1, 2) + ch / 2.0 - h / 2.0);
+                m.Set(0, 2, m.At<double>(0, 2) + (cw - 1) / 2.0 - (w - 1) / 2.0);
+                m.Set(1, 2, m.At<double>(1, 2) + (ch - 1) / 2.0 - (h - 1) / 2.0);
                 var dst = new Mat();
                 Cv2.WarpAffine(tpl, dst, m, new Size(cw, ch), InterpolationFlags.Linear, BorderTypes.Constant, Scalar.All(0));
                 using (var ones = new Mat(h, w, MatType.CV_8UC1, new Scalar(255)))
@@ -273,7 +274,7 @@ namespace InspectionView.Core.Operators.Matching
             using (var warped = Warp(tpl, angle, scale, out var mask))
             using (mask)
             {
-                int x0 = cx - warped.Cols / 2, y0 = cy - warped.Rows / 2;
+                int x0 = cx - (warped.Cols - 1) / 2, y0 = cy - (warped.Rows - 1) / 2;
                 if (x0 < 0 || y0 < 0 || x0 + warped.Cols > search.Cols || y0 + warped.Rows > search.Rows) return -1;
                 using (var roi = new Mat(search, new Rect(x0, y0, warped.Cols, warped.Rows)))
                 using (var result = new Mat())
