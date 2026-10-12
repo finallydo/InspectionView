@@ -30,6 +30,7 @@ namespace InspectionView.App
         private readonly DispatcherTimer _uiTimer;
         private readonly DispatcherTimer _parseTimer;
         private readonly List<ImageViewer> _viewers = new List<ImageViewer>();
+        private readonly Dictionary<ImageViewer, AvalonDock.Layout.LayoutAnchorable> _extraWindows = new Dictionary<ImageViewer, AvalonDock.Layout.LayoutAnchorable>();
         private ImageViewer _activeViewer = null!;
         private CompletionWindow? _completion;
         private OverloadInsightWindow? _insight;
@@ -311,10 +312,12 @@ namespace InspectionView.App
             anchorable.Closed += (s, e) =>
             {
                 _viewers.Remove(viewer);
+                _extraWindows.Remove(viewer);
                 viewer.SetImage(null);
                 if (ReferenceEquals(_activeViewer, viewer))
                     SetActiveViewer(Viewer);
             };
+            _extraWindows[viewer] = anchorable;
             GraphicsPane.Children.Add(anchorable);
             RegisterViewer(viewer);
             anchorable.IsActive = true;
@@ -329,15 +332,8 @@ namespace InspectionView.App
 
         private void OnCloseExtraGraphicsWindows(object sender, RoutedEventArgs e)
         {
-            foreach (var v in _viewers.ToArray())
-            {
-                if (ReferenceEquals(v, Viewer))
-                    continue;
-                if (v.Parent is AvalonDock.Layout.LayoutAnchorable a)
-                    a.Close();
-                else if (Dock.Layout.Descendents().OfType<AvalonDock.Layout.LayoutAnchorable>().FirstOrDefault(x => ReferenceEquals(x.Content, v)) is AvalonDock.Layout.LayoutAnchorable b)
-                    b.Close();
-            }
+            foreach (var a in _extraWindows.Values.ToArray())
+                a.Close();
             SetActiveViewer(Viewer);
         }
 
