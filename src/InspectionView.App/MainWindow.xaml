@@ -1,0 +1,21 @@
+<Window x:Class="InspectionView.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="InspectionView" Height="720" Width="1200">
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="E_xit" Click="OnExit"/>
+            </MenuItem>
+        </Menu>
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock x:Name="StatusText" Text="Ready"/>
+            </StatusBarItem>
+        </StatusBar>
+        <!-- TODO: AvalonDock 레이아웃 (에디터 / 뷰어 / 변수창 / 연산자 트리) -->
+        <Grid>
+            <TextBlock x:Name="OperatorList" Margin="12" FontFamily="Consolas" />
+        </Grid>
+    </DockPanel>
+</Window>

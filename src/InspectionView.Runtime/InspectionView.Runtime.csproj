@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net48</TargetFrameworks>
+    <RootNamespace>InspectionView.Runtime</RootNamespace>
+    <Description>InspectionView job runtime: Job package (zip) load/save, input/output terminals, execution for inspection programs (C# and C++/CLI bridge).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\InspectionView.Core\InspectionView.Core.csproj" />
+    <ProjectReference Include="..\InspectionView.Script\InspectionView.Script.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net48</TargetFrameworks>
+    <RootNamespace>InspectionView.Script</RootNamespace>
+    <Description>InspectionView script language: AST, parser and interpreter (HDevelop-like). The same AST feeds the node UI and Job files.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\InspectionView.Core\InspectionView.Core.csproj" />
+  </ItemGroup>
+
+</Project>
