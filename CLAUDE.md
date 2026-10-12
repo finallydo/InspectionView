@@ -36,7 +36,8 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 - Region 은 불변. 마스크는 `ToMask()` 캐시를 쓰고 반환 Mat 을 수정/Dispose 하지 않는다.
 - 새 연산자: `[Operator("Name", Category=...)]` 클래스 + `[Input]`/`[Output]` 프로퍼티 + `[Backend(BackendKind.Cpu|Parallel|Gpu)] void Run(OperatorContext ctx)`. 입력 검증은 `Validate()` 에서 `VisionException(ErrorCode)` 로. 최소 Cpu 백엔드는 항상 제공.
 - OpenCV 우선. 병목이면 `Parallel.For`(ctx.CreateParallelOptions()) 또는 직접 구현 허용.
-- WPF: 엔진 이벤트는 실행 스레드에서 오므로 뷰모델은 변경을 모아 두고 100ms DispatcherTimer(`MainViewModel.Tick`)에서 반영한다. UI 코드에서 아이코닉 객체를 AddRef/Release 하지 않는다 (VariableTable 소유).
+- WPF: 엔진 이벤트는 실행 스레드에서 오므로 뷰모델은 변경을 모아 두고 100ms DispatcherTimer(`MainViewModel.Tick`)에서 반영한다. UI 코드는 아이코닉 객체를 AddRef/Release 하지 않는다 (VariableTable 소유). 예외: `Viewer/ImageViewer` 는 표시 중인 Image 를 AddRef 해 소유한다.
+- 뷰어(`App/Viewer`): OpenTK 4 + GLWpfControl, GL 3.3 core. 모든 GL 호출은 Render 콜백 안에서만 (업로드/삭제는 pending 큐로 미룸). 이미지는 `ImageTextureSet`(≤4096 타일 + 밉맵), 오버레이는 `OverlayLayer`(원본 객체를 참조하지 않음). 셰이더/OpenGL 오류는 CI 가 못 잡으므로 PC 에서 확인 필요.
 - 예외 정책: 연산자는 `VisionException` 만 던진다. 런타임 API 는 `OperatorInvoker.Invoke` / `TryExecute` 로 에러 코드를 반환한다.
 
 ## 스크립트 문법 (확정)
@@ -63,6 +64,6 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 ## 로드맵
 1. ~~1차 연산자 6개 (Cpu + Parallel) 와 테스트~~ (완료)
 2. ~~Script 렉서/파서/인터프리터, 브레이크포인트, 백그라운드 실행/중지~~ (완료)
-3. App: ~~도킹 레이아웃, 에디터, 변수창, 연산자 트리~~ (완료) → OpenGL 뷰어(피라미드/타일, 오버레이, ROI)
+3. ~~App: 도킹 레이아웃, 에디터, 변수창, 연산자 트리, OpenGL 뷰어(타일/밉맵, 오버레이, ROI)~~ (완료) → 라인 프로파일/히스토그램, 썸네일, 다중 그래픽 창, 2.5D 3D 보기는 이후
 4. Runtime: Job zip, 터미널 바인딩, C++/CLI 브리지
 5. 카메라 플러그인, GPU 연산자, 2.5D

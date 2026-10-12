@@ -10,8 +10,10 @@ using ICSharpCode.AvalonEdit.CodeCompletion;
 using ICSharpCode.AvalonEdit.Rendering;
 using InspectionView.App.Editor;
 using InspectionView.App.ViewModels;
+using InspectionView.Core.Types;
 using InspectionView.Script.Runtime;
 using Microsoft.Win32;
+using Image = InspectionView.Core.Types.Image;
 
 namespace InspectionView.App
 {
@@ -63,6 +65,8 @@ namespace InspectionView.App
 
             _vm.PropertyChanged += OnViewModelPropertyChanged;
             _vm.GoToLineRequested += GoToLine;
+            _vm.DisplayRequested += ShowVariable;
+            Viewer.InsertRoiRequested += InsertRoi;
 
             _uiTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
             _uiTimer.Tick += (s, e) => _vm.Tick();
@@ -160,6 +164,11 @@ namespace InspectionView.App
                         Editor.ScrollToLine(_vm.ErrorLine);
                     break;
 
+                case nameof(MainViewModel.SelectedVariable):
+                    if (_vm.SelectedVariable != null)
+                        ShowVariable(_vm.SelectedVariable);
+                    break;
+
                 case nameof(MainViewModel.State):
                     Editor.IsReadOnly = _vm.State == EngineState.Running;
                     if (_vm.State != EngineState.Running)
@@ -248,6 +257,46 @@ namespace InspectionView.App
             };
             _insight.Closed += (s, e) => _insight = null;
             _insight.Show();
+        }
+
+        // ------------------------------------------------------------------
+        // 그래픽 창
+        // ------------------------------------------------------------------
+
+        /// <summary>변수를 그래픽 창에 표시: Image 는 배경(오버레이 지움), Region/XLD/배열은 오버레이.</summary>
+        private void ShowVariable(VariableItem item)
+        {
+            if (_vm.State == EngineState.Running)
+                return;
+
+            switch (item.Raw)
+            {
+                case Image img:
+                    Viewer.ClearOverlays();
+                    Viewer.SetImage(img);
+                    break;
+                case ObjectArray<Image> arr when arr.Count > 0:
+                    Viewer.ClearOverlays();
+                    Viewer.SetImage(arr[0]);
+                    break;
+                case Region _:
+                case XldContour _:
+                case IObjectArray _:
+                    Viewer.AddOverlay(item.Raw, item.Name);
+                    break;
+            }
+        }
+
+        private void InsertRoi(RectI roi)
+        {
+            var doc = Editor.Document;
+            var line = doc.GetLineByNumber(Editor.TextArea.Caret.Line);
+            string text = $"Roi = GenRectangle1({roi.Y}, {roi.X}, {roi.Bottom - 1}, {roi.Right - 1})";
+            if (line.Length > 0)
+                doc.Insert(line.EndOffset, "\n" + text);
+            else
+                doc.Insert(line.Offset, text);
+            Editor.Focus();
         }
 
         // ------------------------------------------------------------------

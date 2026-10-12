@@ -4,6 +4,7 @@
         xmlns:ad="https://github.com/Dirkster99/AvalonDock"
         xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
         xmlns:vm="clr-namespace:InspectionView.App.ViewModels"
+        xmlns:viewer="clr-namespace:InspectionView.App.Viewer"
         x:Name="Root"
         Title="{Binding Title}" Height="860" Width="1400"
         WindowStartupLocation="CenterScreen">
@@ -42,6 +43,7 @@
                 <MenuItem Header="Clear All Breakpoints" Click="OnClearBreakpoints" />
                 <Separator />
                 <MenuItem Header="Clear _Variables" Click="OnClearVariables" />
+                <MenuItem Header="Auto Display Results" IsCheckable="True" IsChecked="{Binding AutoDisplay}" ToolTip="Show the last image / region result in the graphics window whenever execution pauses" />
                 <MenuItem Header="Fast Mode (no display update)" IsCheckable="True" IsChecked="{Binding FastMode}" />
             </MenuItem>
         </Menu>
@@ -132,7 +134,7 @@
                         </ad:LayoutDocumentPane>
 
                         <!-- 오른쪽: 변수창 + 미리보기 -->
-                        <ad:LayoutPanel Orientation="Vertical" DockWidth="380">
+                        <ad:LayoutPanel Orientation="Vertical" DockWidth="520">
                             <ad:LayoutAnchorablePane DockHeight="300">
                                 <ad:LayoutAnchorable Title="Variables" ContentId="variables" CanClose="False" CanHide="False">
                                     <ListView ItemsSource="{Binding Variables}" SelectedItem="{Binding SelectedVariable}" BorderThickness="0">
@@ -147,10 +149,8 @@
                                 </ad:LayoutAnchorable>
                             </ad:LayoutAnchorablePane>
                             <ad:LayoutAnchorablePane>
-                                <ad:LayoutAnchorable Title="Preview" ContentId="preview" CanClose="False" CanHide="False">
-                                    <Border Background="#FF303030">
-                                        <Image Source="{Binding Preview}" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor" Margin="4" />
-                                    </Border>
+                                <ad:LayoutAnchorable Title="Graphics" ContentId="graphics" CanClose="False" CanHide="False">
+                                    <viewer:ImageViewer x:Name="Viewer" />
                                 </ad:LayoutAnchorable>
                             </ad:LayoutAnchorablePane>
                         </ad:LayoutPanel>

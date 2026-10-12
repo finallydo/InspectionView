@@ -1,0 +1,30 @@
+<UserControl x:Class="InspectionView.App.Viewer.ImageViewer"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:gl="clr-namespace:OpenTK.Wpf;assembly=GLWpfControl"
+             Focusable="True">
+    <DockPanel>
+        <ToolBarTray DockPanel.Dock="Top">
+            <ToolBar>
+                <Button Click="OnFit" ToolTip="Fit image to window (double-click)">Fit</Button>
+                <Button Click="OnActualSize" ToolTip="Zoom 1:1">1:1</Button>
+                <Separator />
+                <ToggleButton x:Name="RoiButton" ToolTip="Draw a rectangle ROI with the left mouse button">ROI</ToggleButton>
+                <Button Click="OnInsertRoi" ToolTip="Insert 'GenRectangle1' for the drawn ROI into the script">Insert ROI</Button>
+                <Button Click="OnClearRoi">Clear ROI</Button>
+                <Separator />
+                <Button Click="OnClearOverlays" ToolTip="Remove all region / contour overlays">Clear overlays</Button>
+                <Separator />
+                <TextBlock x:Name="ZoomText" VerticalAlignment="Center" Margin="6,0" Text="100%" />
+            </ToolBar>
+        </ToolBarTray>
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock x:Name="InfoText" FontFamily="Consolas" Text="" />
+            </StatusBarItem>
+        </StatusBar>
+        <Grid x:Name="Surface" Background="#FF303030" ClipToBounds="True">
+            <gl:GLWpfControl x:Name="Gl" />
+        </Grid>
+    </DockPanel>
+</UserControl>

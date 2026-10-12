@@ -4,8 +4,6 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Windows.Media.Imaging;
-using InspectionView.App.Imaging;
 using InspectionView.Core.Backends;
 using InspectionView.Core.Registry;
 using InspectionView.Core.Types;
@@ -37,7 +35,8 @@ namespace InspectionView.App.ViewModels
         private bool _fastMode;
         private BackendKind _backend = BackendKind.Auto;
         private VariableItem? _selectedVariable;
-        private BitmapSource? _preview;
+        private string _lastIconicVariable = "";
+        private bool _autoDisplay = true;
         private string _outputText = "";
 
         public ScriptEngine Engine { get; }
@@ -52,6 +51,9 @@ namespace InspectionView.App.ViewModels
         /// <summary>UI 가 알아야 하는 요청: 캐럿을 특정 줄로 (오류 더블클릭 등).</summary>
         public event Action<int>? GoToLineRequested;
 
+        /// <summary>그래픽 창에 변수를 표시해 달라는 요청 (자동 표시).</summary>
+        public event Action<VariableItem>? DisplayRequested;
+
         public MainViewModel(Action<Action> uiInvoke, OperatorRegistry? registry = null)
         {
             _ui = uiInvoke;
@@ -62,7 +64,15 @@ namespace InspectionView.App.ViewModels
             Engine.LineChanged += l => _pendingLine = l;
             Engine.ErrorOccurred += OnEngineError;
             Engine.Output += s => { lock (_output) _output.AppendLine(s); _outputDirty = true; };
-            Engine.Variables.Changed += (name, _) => { lock (_dirtyLock) _dirtyVariables.Add(name); };
+            Engine.Variables.Changed += (name, value) =>
+            {
+                lock (_dirtyLock)
+                {
+                    _dirtyVariables.Add(name);
+                    if (value is Core.Memory.IconicObject)
+                        _lastIconicVariable = name;
+                }
+            };
             Engine.Profiler.Recorded += _ => _profileDirty = true;
 
             BuildOperatorTree();
@@ -158,17 +168,14 @@ namespace InspectionView.App.ViewModels
         public VariableItem? SelectedVariable
         {
             get => _selectedVariable;
-            set
-            {
-                if (Set(ref _selectedVariable, value))
-                    UpdatePreview();
-            }
+            set => Set(ref _selectedVariable, value);
         }
 
-        public BitmapSource? Preview
+        /// <summary>실행이 멈출 때 마지막으로 바뀐 아이코닉 변수를 그래픽 창에 자동 표시.</summary>
+        public bool AutoDisplay
         {
-            get => _preview;
-            private set => Set(ref _preview, value);
+            get => _autoDisplay;
+            set => Set(ref _autoDisplay, value);
         }
 
         public string OutputText
@@ -253,7 +260,6 @@ namespace InspectionView.App.ViewModels
                 return;
             Engine.ClearVariables();
             Variables.Clear();
-            Preview = null;
             StatusText = "Variables cleared";
         }
 
@@ -354,7 +360,7 @@ namespace InspectionView.App.ViewModels
                 }
                 Tick();
                 if (state != EngineState.Running)
-                    UpdatePreview();
+                    AutoDisplayLast();
             });
         }
 
@@ -409,8 +415,6 @@ namespace InspectionView.App.ViewModels
                     Variables.Add(item);
                 }
                 item.Update(value);
-                if (ReferenceEquals(item, SelectedVariable))
-                    UpdatePreview();
             }
 
             if (_outputDirty)
@@ -436,25 +440,23 @@ namespace InspectionView.App.ViewModels
             Profile.Clear();
         }
 
-        private void UpdatePreview()
+        private void AutoDisplayLast()
         {
-            // 실행 중에는 변수가 교체/해제될 수 있으므로 픽셀을 읽지 않는다 (멈추면 갱신)
-            if (State == EngineState.Running)
+            if (!AutoDisplay)
                 return;
 
-            var raw = SelectedVariable?.Raw;
-            switch (raw)
+            string name;
+            lock (_dirtyLock)
             {
-                case Image img:
-                    Preview = ImageBitmapConverter.ToBitmap(img, 2048);
-                    break;
-                case ObjectArray<Image> arr when arr.Count > 0:
-                    Preview = ImageBitmapConverter.ToBitmap(arr[0], 2048);
-                    break;
-                default:
-                    Preview = null;
-                    break;
+                name = _lastIconicVariable;
+                _lastIconicVariable = "";
             }
+            if (name.Length == 0)
+                return;
+
+            var item = Variables.FirstOrDefault(v => v.Name == name);
+            if (item != null && item.Raw != null)
+                DisplayRequested?.Invoke(item);
         }
 
         // ------------------------------------------------------------------

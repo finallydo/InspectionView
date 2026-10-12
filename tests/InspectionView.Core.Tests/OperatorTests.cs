@@ -39,7 +39,7 @@ namespace InspectionView.Core.Tests
         public void Registry_ContainsAllFirstStageOperators()
         {
             var reg = OperatorRegistry.Default;
-            foreach (var name in new[] { "ReadImage", "WriteImage", "Threshold", "Connection", "SelectShape", "ReduceDomain", "CropPart" })
+            foreach (var name in new[] { "ReadImage", "WriteImage", "Threshold", "Connection", "SelectShape", "ReduceDomain", "CropPart", "GenRectangle1" })
                 Assert.True(reg.Contains(name), $"missing operator {name}");
 
             Assert.True(reg.Get("Threshold").HasBackend(BackendKind.Parallel));
@@ -264,6 +264,17 @@ namespace InspectionView.Core.Tests
             var r = OperatorInvoker.Invoke(OperatorRegistry.Default, "WriteImage",
                 new object?[] { img, Path.Combine(Path.GetTempPath(), "iv_no_such_dir_" + Guid.NewGuid().ToString("N"), "a.png") });
             Assert.Equal(ErrorCode.FileWriteFailed, r.Code);
+        }
+
+        [Fact]
+        public void GenRectangle1_CreatesInclusiveRectangle()
+        {
+            using var r = Assert.IsType<Region>(Exec("GenRectangle1", BackendKind.Cpu, 10, 20, 19, 39).ReturnValue);
+            Assert.Equal(new RectI(20, 10, 20, 10), r.BoundingBox);
+            Assert.Equal(200, r.Area);
+
+            var bad = OperatorInvoker.Invoke(OperatorRegistry.Default, "GenRectangle1", new object?[] { 10, 20, 5, 39 });
+            Assert.Equal(ErrorCode.InvalidArgument, bad.Code);
         }
 
         [Fact]
