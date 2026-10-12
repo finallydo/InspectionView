@@ -368,6 +368,11 @@ namespace InspectionView.App.Viewer
                 if (err != ErrorCode.NoError)
                     throw new InvalidOperationException($"GL error {err} after {phase}");
 
+                // Intel 내장 그래픽: GL/DirectX 공유 표면이 그리기 완료 전에 표시되어 첫 프레임만 보이는 문제가 있어
+                // 프레임 끝에서 GPU 작업을 강제로 완료시킨다 (2D 뷰어라 비용은 작다).
+                GL.Flush();
+                GL.Finish();
+
                 if (_frameCount % 15 == 0)
                     UpdateZoomText(vw, vh);
 
