@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    MFC/네이티브 C++ 검사 프로그램용 브리지 DLL (C++/CLI, .NET Framework 4.8).
+    VS 설치에 "v143 빌드 도구용 C++/CLI 지원" 구성 요소가 필요하다.
+    InspectionView.Runtime 등 net48 어셈블리를 참조하므로 솔루션에서 C# 프로젝트 뒤에 빌드된다.
+    CI 처럼 C++/CLI 가 없는 환경에서는 -p:IVSkipBridge=true 로 건너뛴다.
+  -->
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{7C2D4F1E-3A5B-4E6C-9D8F-1B2C3D4E5F60}</ProjectGuid>
+    <RootNamespace>InspectionViewBridge</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>InspectionView.Bridge</ProjectName>
+    <Keyword>ManagedCProj</Keyword>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CLRSupport>true</CLRSupport>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CLRSupport>true</CLRSupport>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)bin\$(Configuration)\bridge\</OutDir>
+    <IntDir>$(SolutionDir)obj\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>InspectionView.Bridge</TargetName>
+    <IVManagedDir>$(SolutionDir)src\InspectionView.Runtime\bin\x64\$(Configuration)\net48\</IVManagedDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>IVB_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "$(IVManagedDir)*.dll" "$(OutDir)"</Command>
+      <Message>Copy managed assemblies next to the bridge DLL</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="Bridge.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ivbridge.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="InspectionView.Core">
+      <HintPath>$(IVManagedDir)InspectionView.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="InspectionView.Script">
+      <HintPath>$(IVManagedDir)InspectionView.Script.dll</HintPath>
+    </Reference>
+    <Reference Include="InspectionView.Runtime">
+      <HintPath>$(IVManagedDir)InspectionView.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenCvSharp">
+      <HintPath>$(IVManagedDir)OpenCvSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <!-- C++/CLI 가 없는 환경에서 건너뛰기 -->
+  <Target Name="Build" Condition="'$(IVSkipBridge)' == 'true'">
+    <Message Importance="high" Text="InspectionView.Bridge skipped (IVSkipBridge=true)." />
+  </Target>
+</Project>

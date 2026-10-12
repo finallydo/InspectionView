@@ -7,6 +7,7 @@ using System.Text;
 using InspectionView.Core.Backends;
 using InspectionView.Core.Registry;
 using InspectionView.Core.Types;
+using InspectionView.Runtime;
 using InspectionView.Script.Runtime;
 
 namespace InspectionView.App.ViewModels
@@ -47,6 +48,38 @@ namespace InspectionView.App.ViewModels
         public ObservableCollection<DiagnosticItem> Diagnostics { get; } = new ObservableCollection<DiagnosticItem>();
         public ObservableCollection<ProfileItem> Profile { get; } = new ObservableCollection<ProfileItem>();
         public ObservableCollection<OperatorNode> OperatorTree { get; } = new ObservableCollection<OperatorNode>();
+
+        // ---- Job ----
+        private JobDocument _job = new JobDocument();
+        private string _jobPath = "";
+        private string _jobName = "";
+        private string _jobDescription = "";
+
+        public ObservableCollection<TerminalItem> JobInputs { get; } = new ObservableCollection<TerminalItem>();
+        public ObservableCollection<TerminalItem> JobOutputs { get; } = new ObservableCollection<TerminalItem>();
+        public ObservableCollection<ResourceItem> JobResources { get; } = new ObservableCollection<ResourceItem>();
+
+        public string JobPath
+        {
+            get => _jobPath;
+            private set
+            {
+                if (Set(ref _jobPath, value))
+                    OnPropertyChanged(nameof(Title));
+            }
+        }
+
+        public string JobName
+        {
+            get => _jobName;
+            set => Set(ref _jobName, value ?? "");
+        }
+
+        public string JobDescription
+        {
+            get => _jobDescription;
+            set => Set(ref _jobDescription, value ?? "");
+        }
         public IReadOnlyList<BackendKind> Backends { get; } = new[] { BackendKind.Auto, BackendKind.Cpu, BackendKind.Parallel, BackendKind.Gpu };
 
         /// <summary>UI 가 알아야 하는 요청: 캐럿을 특정 줄로 (오류 더블클릭 등).</summary>
@@ -159,7 +192,16 @@ namespace InspectionView.App.ViewModels
             }
         }
 
-        public string Title => (string.IsNullOrEmpty(FilePath) ? "Untitled.ivs" : Path.GetFileName(FilePath)) + (IsDirty ? " *" : "") + " - InspectionView";
+        public string Title
+        {
+            get
+            {
+                string name = !string.IsNullOrEmpty(JobPath) ? Path.GetFileName(JobPath)
+                            : !string.IsNullOrEmpty(FilePath) ? Path.GetFileName(FilePath)
+                            : "Untitled.ivs";
+                return name + (IsDirty ? " *" : "") + " - InspectionView";
+            }
+        }
 
         /// <summary>고속 모드: 줄/변수 갱신과 프로파일링을 끈다.</summary>
         public bool FastMode
@@ -354,6 +396,191 @@ namespace InspectionView.App.ViewModels
         }
 
         // ------------------------------------------------------------------
+        // Job (패키지)
+        // ------------------------------------------------------------------
+
+        /// <summary>새 Job: 터미널/리소스/경로를 비운다. 스크립트는 그대로 둔다.</summary>
+        public void NewJob()
+        {
+            _job.Dispose();
+            _job = new JobDocument();
+            JobPath = "";
+            JobName = "";
+            JobDescription = "";
+            JobInputs.Clear();
+            JobOutputs.Clear();
+            JobResources.Clear();
+            StatusText = "New job";
+        }
+
+        /// <summary>패키지를 열어 터미널/리소스를 채우고 리소스를 변수로 로드한다. 스크립트 텍스트를 돌려준다.</summary>
+        public string OpenJob(string path)
+        {
+            var doc = JobPackage.Load(path);
+            _job.Dispose();
+            _job = doc;
+            JobPath = path;
+            FilePath = "";
+            JobName = doc.Manifest.Name;
+            JobDescription = doc.Manifest.Description;
+
+            JobInputs.Clear();
+            foreach (var t in doc.Manifest.Inputs) JobInputs.Add(new TerminalItem(t));
+            JobOutputs.Clear();
+            foreach (var t in doc.Manifest.Outputs) JobOutputs.Add(new TerminalItem(t));
+            RefreshJobResources();
+
+            if (State != EngineState.Running)
+            {
+                foreach (var kv in doc.AllResources())
+                    Engine.Variables.Set(kv.Key, kv.Value);
+                Tick();
+            }
+
+            Engine.ClearBreakpoints();
+            IsDirty = false;
+            StatusText = $"Opened job {path}";
+            return doc.Script;
+        }
+
+        /// <summary>터미널 편집 내용과 스크립트를 패키지로 저장한다.</summary>
+        public void SaveJob(string path, string script)
+        {
+            SyncJobManifest();
+            _job.Script = script;
+            JobPackage.Save(path, _job);
+            JobPath = path;
+            IsDirty = false;
+            StatusText = $"Saved job {path}";
+        }
+
+        private void SyncJobManifest()
+        {
+            var m = _job.Manifest;
+            m.Name = JobName;
+            m.Description = JobDescription;
+            m.Inputs.Clear();
+            foreach (var t in JobInputs)
+                if (t.Name.Length > 0) m.Inputs.Add(t.ToTerminal());
+            m.Outputs.Clear();
+            foreach (var t in JobOutputs)
+                if (t.Name.Length > 0) m.Outputs.Add(t.ToTerminal());
+        }
+
+        private void RefreshJobResources()
+        {
+            JobResources.Clear();
+            foreach (var kv in _job.Regions) JobResources.Add(new ResourceItem(kv.Key, TerminalType.Region, kv.Value.ToString() ?? ""));
+            foreach (var kv in _job.Images) JobResources.Add(new ResourceItem(kv.Key, TerminalType.Image, kv.Value.ToString() ?? ""));
+            foreach (var kv in _job.Parameters) JobResources.Add(new ResourceItem(kv.Key, TerminalType.Tuple, kv.Value.ToString()));
+        }
+
+        /// <summary>현재 변수를 패키지 리소스로 추가한다 (Region / Image / Tuple).</summary>
+        public bool AddJobResource(string variableName)
+        {
+            if (State == EngineState.Running || !Engine.Variables.TryGet(variableName, out var value))
+            {
+                StatusText = $"Variable '{variableName}' is not available";
+                return false;
+            }
+
+            try
+            {
+                switch (value)
+                {
+                    case Region r: _job.SetRegion(variableName, r); break;
+                    case Image i: _job.SetImage(variableName, i); break;
+                    case TupleValue t: _job.SetParameter(variableName, t); break;
+                    default:
+                        StatusText = $"'{variableName}' ({ScriptValues.TypeName(value)}) cannot be stored in a job (Region, Image or Tuple only)";
+                        return false;
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                StatusText = ex.Message;
+                return false;
+            }
+
+            RefreshJobResources();
+            IsDirty = true;
+            StatusText = $"Added '{variableName}' to the job";
+            return true;
+        }
+
+        public void RemoveJobResource(string name)
+        {
+            if (_job.RemoveResource(name))
+            {
+                RefreshJobResources();
+                IsDirty = true;
+            }
+        }
+
+        /// <summary>
+        /// 런타임과 같은 경로로 Job 을 시험 실행한다: 입력 터미널은 같은 이름의 현재 변수에서 가져온다.
+        /// 결과는 출력 창에 기록한다.
+        /// </summary>
+        public void TestRunJob(string script)
+        {
+            if (State == EngineState.Running)
+                return;
+
+            SyncJobManifest();
+            _job.Script = script;
+
+            var inputs = new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (var t in _job.Manifest.Inputs)
+            {
+                if (Engine.Variables.TryGet(t.Name, out var v) && v != null)
+                    inputs[t.Name] = v;
+            }
+
+            try
+            {
+                using (var runner = new JobRunner(_job, Registry, BackendSettings.Global))
+                {
+                    runner.Output += line => AppendOutput("[job] " + line);
+                    using (var result = runner.Run(inputs))
+                    {
+                        if (result.Success)
+                        {
+                            AppendOutput($"[job] OK in {result.Elapsed.TotalMilliseconds:F1} ms, {result.Records.Count} operator call(s)");
+                            foreach (var kv in result.Outputs)
+                                AppendOutput($"[job]   {kv.Key} = {ScriptValues.Format(kv.Value)}");
+                            StatusText = "Job test run OK";
+                        }
+                        else
+                        {
+                            AppendOutput($"[job] FAILED {result.Code} at line {result.Line}: {result.Message}");
+                            StatusText = $"Job test run failed: {result.Code}";
+                            if (result.Line > 0)
+                                ErrorLine = result.Line;
+                        }
+                    }
+                }
+            }
+            catch (JobException ex)
+            {
+                AppendOutput($"[job] syntax error: {ex.Message}");
+                StatusText = "Job test run failed: syntax error";
+            }
+            catch (Exception ex)
+            {
+                AppendOutput($"[job] error: {ex.Message}");
+                StatusText = "Job test run failed";
+            }
+            _outputDirty = true;
+            Tick();
+        }
+
+        private void AppendOutput(string line)
+        {
+            lock (_output) _output.AppendLine(line);
+            _outputDirty = true;
+        }
+
+        // ------------------------------------------------------------------
         // 엔진 이벤트 (실행 스레드) → UI 반영
         // ------------------------------------------------------------------
 
@@ -537,6 +764,7 @@ namespace InspectionView.App.ViewModels
         public void Dispose()
         {
             Engine.Dispose();
+            _job.Dispose();
         }
     }
 }

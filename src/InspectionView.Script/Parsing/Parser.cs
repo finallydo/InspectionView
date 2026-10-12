@@ -21,6 +21,18 @@ namespace InspectionView.Script.Parsing
             _tokens = tokens;
         }
 
+        /// <summary>식 하나를 파싱한다 (Job 파라미터 값 등). 구문 오류면 <see cref="ParseException"/>.</summary>
+        public static Expression ParseExpressionText(string text)
+        {
+            var parser = new Parser(Lexer.Tokenize(text ?? ""));
+            parser.SkipNewlines();
+            var expr = parser.ParseExpression();
+            parser.SkipNewlines();
+            if (!parser.AtEnd)
+                throw parser.Error(parser.Cur, $"Unexpected {Describe(parser.Cur)} after expression");
+            return expr;
+        }
+
         /// <summary>소스를 파싱한다. 오류가 있어도 가능한 부분까지의 AST 를 돌려준다.</summary>
         public static ProgramNode Parse(string source, out IReadOnlyList<Diagnostic> diagnostics)
         {

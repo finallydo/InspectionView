@@ -54,6 +54,54 @@ namespace InspectionView.Script.Runtime
         }
 
         // ------------------------------------------------------------------
+        // 리터럴 ↔ 문자열 (Job 파라미터 저장)
+        // ------------------------------------------------------------------
+
+        /// <summary>스크립트 리터럴 문자열("[1, 2.5, 'a']", "'x'", "3")을 Tuple 로 평가한다. 변수/호출은 허용하지 않는다.</summary>
+        public static TupleValue ParseLiteral(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return TupleValue.Empty;
+
+            Expression expr;
+            try
+            {
+                expr = Parsing.Parser.ParseExpressionText(text);
+            }
+            catch (Parsing.ParseException ex)
+            {
+                throw new ScriptRuntimeException(ex.Line, $"Invalid literal '{text}': {ex.Message}");
+            }
+            return ToTuple(EvaluateLiteral(expr), 0);
+        }
+
+        private static object EvaluateLiteral(Expression e)
+        {
+            switch (e)
+            {
+                case LiteralExpression lit:
+                    return new TupleValue(lit.Value);
+                case TupleExpression t:
+                {
+                    var items = new List<object>();
+                    foreach (var item in t.Items)
+                        foreach (var o in ToTuple(EvaluateLiteral(item), e.Line))
+                            items.Add(o);
+                    return new TupleValue(items.ToArray());
+                }
+                case UnaryExpression u:
+                    return Unary(u.Operator, EvaluateLiteral(u.Operand), e.Line);
+                case BinaryExpression b:
+                    return Binary(b.Operator, EvaluateLiteral(b.Left), EvaluateLiteral(b.Right), e.Line);
+                default:
+                    throw new ScriptRuntimeException(e.Line, "Only literal values are allowed here (no variables or calls)");
+            }
+        }
+
+        /// <summary>Tuple 을 다시 파싱 가능한 리터럴 문자열로.</summary>
+        public static string ToLiteral(TupleValue value) => value.ToString();
+
+        // ------------------------------------------------------------------
         // 변환
         // ------------------------------------------------------------------
 

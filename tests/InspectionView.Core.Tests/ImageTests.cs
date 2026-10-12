@@ -65,6 +65,28 @@ namespace InspectionView.Core.Tests
         }
 
         [Fact]
+        public unsafe void FromBuffer_And_CopyTo_RoundTrip()
+        {
+            // 행 간격이 넓은 외부 버퍼 (5x3, 1채널, stride 8)
+            var src = new byte[8 * 3];
+            for (int y = 0; y < 3; y++)
+                for (int x = 0; x < 5; x++)
+                    src[y * 8 + x] = (byte)(y * 10 + x);
+
+            fixed (byte* p = src)
+            {
+                using var img = Image.FromBuffer((IntPtr)p, 5, 3, 8, PixelType.UInt8);
+                Assert.Equal(21, img.GetPixel(1, 2));
+
+                var dst = new byte[5 * 3];
+                fixed (byte* d = dst)
+                    img.CopyTo((IntPtr)d);
+                Assert.Equal(21, dst[2 * 5 + 1]);
+                Assert.Equal(4, dst[4]);
+            }
+        }
+
+        [Fact]
         public void ObjectArray_ReleasesItems()
         {
             var a = Image.Create(2, 2, PixelType.UInt8);

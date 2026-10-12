@@ -111,6 +111,46 @@ namespace InspectionView.Core.Types
         private static long AlignUp(long value, int alignment)
             => (value + alignment - 1) / alignment * alignment;
 
+        /// <summary>
+        /// 외부 메모리(카메라 버퍼, MFC 비트맵 등)를 복사해 새 이미지를 만든다.
+        /// <paramref name="stride"/> 는 원본의 행 간격(바이트). 0 이면 촘촘히 채워진 것으로 본다.
+        /// </summary>
+        public static Image FromBuffer(IntPtr data, int width, int height, long stride, PixelType pixelType, int channels = 1)
+        {
+            if (data == IntPtr.Zero)
+                throw VisionException.NullArgument(nameof(data));
+
+            var img = new Image(width, height, pixelType, channels);
+            long rowBytes = (long)width * img.BytesPerPixel;
+            if (stride <= 0) stride = rowBytes;
+            if (stride < rowBytes)
+                throw VisionException.InvalidArgument(nameof(stride), $"must be >= {rowBytes}");
+
+            byte* src = (byte*)data;
+            byte* dst = (byte*)img.GetHostPointer(forWrite: true);
+            for (int y = 0; y < height; y++)
+                Buffer.MemoryCopy(src + stride * y, dst + img.Stride * y, img.Stride, rowBytes);
+            return img;
+        }
+
+        /// <summary>픽셀을 외부 메모리로 복사한다 (검사 프로그램으로 결과 반환). <paramref name="dstStride"/> 0 이면 촘촘히.</summary>
+        public void CopyTo(IntPtr destination, long dstStride = 0)
+        {
+            ThrowIfDisposed();
+            if (destination == IntPtr.Zero)
+                throw VisionException.NullArgument(nameof(destination));
+
+            long rowBytes = (long)Width * BytesPerPixel;
+            if (dstStride <= 0) dstStride = rowBytes;
+            if (dstStride < rowBytes)
+                throw VisionException.InvalidArgument(nameof(dstStride), $"must be >= {rowBytes}");
+
+            byte* src = (byte*)GetHostPointer(forWrite: false);
+            byte* dst = (byte*)destination;
+            for (int y = 0; y < Height; y++)
+                Buffer.MemoryCopy(src + Stride * y, dst + dstStride * y, rowBytes, rowBytes);
+        }
+
         // ------------------------------------------------------------------
         // Domain
         // ------------------------------------------------------------------

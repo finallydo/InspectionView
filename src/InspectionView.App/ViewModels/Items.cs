@@ -165,3 +165,50 @@ namespace InspectionView.App.ViewModels
         }
     }
 }
+
+namespace InspectionView.App.ViewModels
+{
+    /// <summary>Job 터미널 편집 행 (DataGrid).</summary>
+    public sealed class TerminalItem : ObservableObject
+    {
+        private string _name = "";
+        private string _type = InspectionView.Runtime.TerminalType.Tuple;
+        private string _default = "";
+        private string _description = "";
+
+        public string Name { get => _name; set => Set(ref _name, (value ?? "").Trim()); }
+        public string Type { get => _type; set => Set(ref _type, string.IsNullOrEmpty(value) ? InspectionView.Runtime.TerminalType.Tuple : value); }
+        public string Default { get => _default; set => Set(ref _default, value ?? ""); }
+        public string Description { get => _description; set => Set(ref _description, value ?? ""); }
+
+        public TerminalItem()
+        {
+        }
+
+        public TerminalItem(InspectionView.Runtime.JobTerminal t)
+        {
+            _name = t.Name;
+            _type = t.Type;
+            _default = t.Default;
+            _description = t.Description;
+        }
+
+        public InspectionView.Runtime.JobTerminal ToTerminal()
+            => new InspectionView.Runtime.JobTerminal(Name, Type, Description, Default);
+    }
+
+    /// <summary>Job 패키지 리소스 행.</summary>
+    public sealed class ResourceItem
+    {
+        public string Name { get; }
+        public string Type { get; }
+        public string Summary { get; }
+
+        public ResourceItem(string name, string type, string summary)
+        {
+            Name = name;
+            Type = type;
+            Summary = summary;
+        }
+    }
+}

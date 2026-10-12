@@ -22,10 +22,12 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 | src/InspectionView.Core | net8.0; net48 | 데이터 타입(Image/Region/XLD/Tuple/ObjectArray), 메모리, 백엔드, 연산자 레지스트리, 기본 연산자 |
 | src/InspectionView.Native | C++ DLL (x64) | GPU 백엔드 (CUDA 옵션, `IVN_WITH_CUDA`). C API 는 `include/ivnative.h`, C# 선언은 `Core/Backends/GpuRuntime.cs` 와 일치 유지 |
 | src/InspectionView.Script | net8.0; net48 | 스크립트 AST / 파서 / 인터프리터 |
-| src/InspectionView.Runtime | net8.0; net48 | Job 패키지(zip) 입출력, 입출력 터미널, 검사 프로그램 연동 |
+| src/InspectionView.Runtime | net8.0; net48 | Job 패키지(.ivjob zip: manifest.json/script.ivs/params/roi/models) `JobPackage`, `JobDocument`, 동기 실행기 `JobRunner`(터미널 바인딩, 에러 코드), 검사 프로그램 API `InspectionJob` |
+| src/InspectionView.Bridge | C++/CLI DLL (net48) | MFC 용 C API (`ivbridge.h`: ivb_job_load/set_image/run/get_*). "C++/CLI 지원" 구성 요소 필요. CI 는 best-effort, 솔루션 빌드 시 `-p:IVSkipBridge=true` 로 건너뛸 수 있음 |
 | src/InspectionView.App | net8.0-windows WPF | IDE: `MainViewModel`(엔진 소유, 이벤트를 UI 타이머로 모아 반영), `Editor/`(하이라이트, 브레이크포인트 여백, 실행 줄/오류 렌더러, 자동완성), AvalonDock 레이아웃. 이후 OpenTK GLWpfControl, Nodify |
 | tests/InspectionView.Core.Tests | net8.0 xunit | Core 단위 테스트 |
 | tests/InspectionView.Script.Tests | net8.0 xunit | 렉서/파서/컴파일러/엔진 테스트 |
+| tests/InspectionView.Runtime.Tests | net8.0 xunit | 패키지 입출력, 러너, 터미널, 파사드 테스트 |
 
 ## 코딩 규칙
 - C# 12, nullable enable, ImplicitUsings 비활성 (net48 호환을 위해 using 명시).
@@ -38,6 +40,7 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 - OpenCV 우선. 병목이면 `Parallel.For`(ctx.CreateParallelOptions()) 또는 직접 구현 허용.
 - WPF: 엔진 이벤트는 실행 스레드에서 오므로 뷰모델은 변경을 모아 두고 100ms DispatcherTimer(`MainViewModel.Tick`)에서 반영한다. UI 코드는 아이코닉 객체를 AddRef/Release 하지 않는다 (VariableTable 소유). 예외: `Viewer/ImageViewer` 는 표시 중인 Image 를 AddRef 해 소유한다.
 - 뷰어(`App/Viewer`): OpenTK 4 + GLWpfControl, GL 3.3 core. 모든 GL 호출은 Render 콜백 안에서만 (업로드/삭제는 pending 큐로 미룸). 이미지는 `ImageTextureSet`(≤4096 타일 + 밉맵), 오버레이는 `OverlayLayer`(원본 객체를 참조하지 않음). 셰이더/OpenGL 오류는 CI 가 못 잡으므로 PC 에서 확인 필요.
+- Job: manifest 는 DataContractJsonSerializer(net48 호환, 외부 의존 없음). 리소스(ROI/모델/파라미터)는 실행 시 같은 이름의 변수로 로드된다. `JobRunner` 는 인스턴스당 한 스레드, 예외 대신 `JobResult.Code`.
 - 예외 정책: 연산자는 `VisionException` 만 던진다. 런타임 API 는 `OperatorInvoker.Invoke` / `TryExecute` 로 에러 코드를 반환한다.
 
 ## 스크립트 문법 (확정)
@@ -65,5 +68,5 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 1. ~~1차 연산자 6개 (Cpu + Parallel) 와 테스트~~ (완료)
 2. ~~Script 렉서/파서/인터프리터, 브레이크포인트, 백그라운드 실행/중지~~ (완료)
 3. ~~App: 도킹 레이아웃, 에디터, 변수창(썸네일), 연산자 트리, OpenGL 뷰어(타일/밉맵, 오버레이, ROI, 프로파일), 히스토그램/라인 프로파일, 다중 그래픽 창~~ (완료) → 2.5D 3D 보기는 이후
-4. Runtime: Job zip, 터미널 바인딩, C++/CLI 브리지
+4. ~~Runtime: Job zip, 터미널 바인딩, C# API, C++/CLI 브리지, IDE Job 메뉴/터미널 창~~ (완료)
 5. 카메라 플러그인, GPU 연산자, 2.5D

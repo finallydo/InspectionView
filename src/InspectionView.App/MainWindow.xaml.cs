@@ -22,6 +22,7 @@ namespace InspectionView.App
     public partial class MainWindow : Window
     {
         private const string FileFilter = "InspectionView script (*.ivs)|*.ivs|All files (*.*)|*.*";
+        private const string JobFilter = "InspectionView job (*.ivjob)|*.ivjob|All files (*.*)|*.*";
 
         private readonly MainViewModel _vm;
         private readonly BreakpointMargin _breakpointMargin = new BreakpointMargin();
@@ -496,6 +497,83 @@ namespace InspectionView.App
                 MessageBox.Show(this, ex.Message, "Save failed", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
+        }
+
+        // ------------------------------------------------------------------
+        // Job
+        // ------------------------------------------------------------------
+
+        private void OnNewJob(object sender, RoutedEventArgs e)
+        {
+            if (!ConfirmDiscardChanges())
+                return;
+            _vm.NewJob();
+            SetEditorText(_vm.NewScript());
+        }
+
+        private void OnOpenJob(object sender, RoutedEventArgs e)
+        {
+            if (!ConfirmDiscardChanges())
+                return;
+            var dlg = new OpenFileDialog { Filter = JobFilter, DefaultExt = InspectionView.Runtime.JobPackage.Extension };
+            if (dlg.ShowDialog(this) != true)
+                return;
+            try
+            {
+                SetEditorText(_vm.OpenJob(dlg.FileName));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Open job failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OnSaveJob(object sender, RoutedEventArgs e) => SaveJob(false);
+        private void OnSaveJobAs(object sender, RoutedEventArgs e) => SaveJob(true);
+
+        private bool SaveJob(bool saveAs)
+        {
+            var path = _vm.JobPath;
+            if (saveAs || string.IsNullOrEmpty(path))
+            {
+                var dlg = new SaveFileDialog
+                {
+                    Filter = JobFilter,
+                    DefaultExt = InspectionView.Runtime.JobPackage.Extension,
+                    FileName = string.IsNullOrEmpty(path) ? (string.IsNullOrEmpty(_vm.JobName) ? "job" : _vm.JobName) + InspectionView.Runtime.JobPackage.Extension : path,
+                };
+                if (dlg.ShowDialog(this) != true)
+                    return false;
+                path = dlg.FileName;
+            }
+            try
+            {
+                _vm.SaveJob(path, Editor.Text);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Save job failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+        }
+
+        private void OnTestRunJob(object sender, RoutedEventArgs e) => _vm.TestRunJob(Editor.Text);
+
+        private void OnAddJobResource(object sender, RoutedEventArgs e)
+        {
+            if (_vm.SelectedVariable == null)
+            {
+                _vm.StatusText = "Select a variable in the Variables window first";
+                return;
+            }
+            _vm.AddJobResource(_vm.SelectedVariable.Name);
+        }
+
+        private void OnRemoveJobResource(object sender, RoutedEventArgs e)
+        {
+            if (JobResourceList.SelectedItem is ResourceItem item)
+                _vm.RemoveJobResource(item.Name);
         }
 
         // ------------------------------------------------------------------

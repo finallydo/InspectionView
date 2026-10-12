@@ -5,6 +5,7 @@
         xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
         xmlns:vm="clr-namespace:InspectionView.App.ViewModels"
         xmlns:viewer="clr-namespace:InspectionView.App.Viewer"
+        xmlns:rt="clr-namespace:InspectionView.Runtime;assembly=InspectionView.Runtime"
         x:Name="Root"
         Title="{Binding Title}" Height="860" Width="1400"
         WindowStartupLocation="CenterScreen">
@@ -31,6 +32,14 @@
                 <MenuItem Header="Save _As..." InputGestureText="Ctrl+Shift+S" Command="{Binding SaveAsCommand, ElementName=Root}" />
                 <Separator />
                 <MenuItem Header="E_xit" Click="OnExit" />
+            </MenuItem>
+            <MenuItem Header="_Job">
+                <MenuItem Header="_New Job" Click="OnNewJob" />
+                <MenuItem Header="_Open Job..." Click="OnOpenJob" />
+                <MenuItem Header="_Save Job" Click="OnSaveJob" />
+                <MenuItem Header="Save Job _As..." Click="OnSaveJobAs" />
+                <Separator />
+                <MenuItem Header="_Test Run Job" Click="OnTestRunJob" ToolTip="Run the job through the runtime using current variables as inputs" />
             </MenuItem>
             <MenuItem Header="_Window">
                 <MenuItem Header="_New Graphics Window" Click="OnNewGraphicsWindow" />
@@ -94,8 +103,52 @@
                 <ad:LayoutPanel Orientation="Vertical">
                     <ad:LayoutPanel Orientation="Horizontal">
 
-                        <!-- 왼쪽: 연산자 트리 -->
+                        <!-- 왼쪽: 연산자 트리 / Job 터미널 -->
                         <ad:LayoutAnchorablePane DockWidth="250">
+                            <ad:LayoutAnchorable Title="Job" ContentId="job" CanClose="False" CanHide="False">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="4">
+                                        <TextBlock Text="Name" FontWeight="Bold" />
+                                        <TextBox Text="{Binding JobName, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,6" />
+                                        <TextBlock Text="Description" FontWeight="Bold" />
+                                        <TextBox Text="{Binding JobDescription, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,6" AcceptsReturn="True" MinHeight="40" />
+
+                                        <TextBlock Text="Inputs (variables set by the inspection program)" FontWeight="Bold" />
+                                        <DataGrid ItemsSource="{Binding JobInputs}" AutoGenerateColumns="False" CanUserAddRows="True" CanUserDeleteRows="True"
+                                                  HeadersVisibility="Column" MinHeight="80" Margin="0,2,0,6" RowHeaderWidth="0">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=LostFocus}" Width="*" />
+                                                <DataGridComboBoxColumn Header="Type" SelectedItemBinding="{Binding Type}" ItemsSource="{x:Static rt:TerminalType.All}" Width="80" />
+                                                <DataGridTextColumn Header="Default" Binding="{Binding Default}" Width="70" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+
+                                        <TextBlock Text="Outputs (variables read by the inspection program)" FontWeight="Bold" />
+                                        <DataGrid ItemsSource="{Binding JobOutputs}" AutoGenerateColumns="False" CanUserAddRows="True" CanUserDeleteRows="True"
+                                                  HeadersVisibility="Column" MinHeight="80" Margin="0,2,0,6" RowHeaderWidth="0">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=LostFocus}" Width="*" />
+                                                <DataGridComboBoxColumn Header="Type" SelectedItemBinding="{Binding Type}" ItemsSource="{x:Static rt:TerminalType.All}" Width="80" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+
+                                        <TextBlock Text="Resources stored in the package (ROI, models, parameters)" FontWeight="Bold" />
+                                        <ListView x:Name="JobResourceList" ItemsSource="{Binding JobResources}" MinHeight="60" Margin="0,2,0,2">
+                                            <ListView.View>
+                                                <GridView>
+                                                    <GridViewColumn Header="Name" Width="90" DisplayMemberBinding="{Binding Name}" />
+                                                    <GridViewColumn Header="Type" Width="60" DisplayMemberBinding="{Binding Type}" />
+                                                    <GridViewColumn Header="Value" Width="200" DisplayMemberBinding="{Binding Summary}" />
+                                                </GridView>
+                                            </ListView.View>
+                                        </ListView>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Click="OnAddJobResource" Padding="6,1" Margin="0,0,4,0" ToolTip="Store the variable selected in the Variables window">Add selected variable</Button>
+                                            <Button Click="OnRemoveJobResource" Padding="6,1">Remove</Button>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </ad:LayoutAnchorable>
                             <ad:LayoutAnchorable Title="Operators" ContentId="operators" CanClose="False" CanHide="False">
                                 <TreeView x:Name="OperatorTreeView" ItemsSource="{Binding OperatorTree}"
                                           MouseDoubleClick="OnOperatorDoubleClick" BorderThickness="0">

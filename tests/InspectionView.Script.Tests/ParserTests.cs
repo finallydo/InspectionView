@@ -117,6 +117,23 @@ endwhile
         }
 
         [Fact]
+        public void Literal_RoundTrip()
+        {
+            var t = ScriptValues.ParseLiteral("[1, -2.5, 'a b', true]");
+            Assert.Equal(4, t.Length);
+            Assert.Equal(-2.5, t.D(1));
+            Assert.Equal("a b", t.S(2));
+            Assert.Equal(t, ScriptValues.ParseLiteral(ScriptValues.ToLiteral(t)));
+
+            Assert.Equal(42L, ScriptValues.ParseLiteral("42").L());
+            Assert.Equal("x", ScriptValues.ParseLiteral("'x'").S());
+            Assert.True(ScriptValues.ParseLiteral("").IsEmpty);
+            Assert.Throws<ScriptRuntimeException>(() => ScriptValues.ParseLiteral("Foo"));
+            Assert.Throws<ScriptRuntimeException>(() => ScriptValues.ParseLiteral("ReadImage('a')"));
+            Assert.Throws<ScriptRuntimeException>(() => ScriptValues.ParseLiteral("[1,"));
+        }
+
+        [Fact]
         public void Engine_Check_ReturnsDiagnosticsWithoutRunning()
         {
             Assert.Empty(ScriptEngine.Check("A = 1\n"));

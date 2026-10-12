@@ -27,13 +27,15 @@ InspectionView/
 │  │                 Regions(Connection, SelectShape, GenRectangle1), Images(ReduceDomain, CropPart)
 │  ├─ InspectionView.Native/          [C++ DLL]  GPU 백엔드 (CUDA 옵션, 없으면 device_count = 0)
 │  ├─ InspectionView.Script/          [net8.0; net48]  스크립트: Lexing/Parsing(AST) → Compilation(명령 리스트) → Runtime(인터프리터, ScriptEngine)
-│  ├─ InspectionView.Runtime/         [net8.0; net48]  Job 패키지 manifest (zip 입출력/실행기는 다음 단계)
+│  ├─ InspectionView.Runtime/         [net8.0; net48]  Job 패키지(.ivjob) 입출력, JobRunner(터미널 바인딩), InspectionJob(검사 프로그램 API)
+│  ├─ InspectionView.Bridge/          [C++/CLI net48]  MFC 용 C API (ivbridge.h)
 │  └─ InspectionView.App/             [net8.0-windows WPF]  IDE: 도킹 레이아웃, 에디터(하이라이트/브레이크포인트/자동완성), 변수창, 연산자 트리,
 │                                     출력/오류/타이밍, Viewer/(OpenGL 뷰어: 타일+밉맵, Region/XLD 오버레이, 줌/팬, ROI, 프로파일 선,
 │                                     히스토그램/라인 프로파일 창, 다중 그래픽 창), 변수창 썸네일
 ├─ tests/
 │  ├─ InspectionView.Core.Tests/      xunit (Region 집합연산, Image/Mat 상호운용, 레지스트리, 연산자)
-│  └─ InspectionView.Script.Tests/    xunit (렉서/파서/컴파일러/엔진)
+│  ├─ InspectionView.Script.Tests/    xunit (렉서/파서/컴파일러/엔진)
+│  └─ InspectionView.Runtime.Tests/   xunit (Job 패키지, 러너, 파사드)
 └─ plugins/                           연산자 플러그인 DLL 폴더 (실행 시 Plugins/ 로 복사)
 ```
 
@@ -106,6 +108,15 @@ Image = ReadImage('C:/img/a.png')
    → OperatorDescriptor.SelectBackend → ReadImage.RunCpu → OperatorResult.ReturnValue (Image)
 ```
 
+## Job (검사 프로그램 연동)
+IDE 의 Job 창에서 입력/출력 터미널과 패키지 리소스(ROI, 모델 이미지, 파라미터)를 정의하고 `Job → Save Job` 으로 `.ivjob` 을 만든다.
+```csharp
+using var job = InspectionJob.Load(@"C:\jobs\front.ivjob");
+job.SetInputImage("Image", pBits, width, height, stride, PixelType.UInt8);   // 또는 job.SetInput("Image", image)
+using var result = job.Run();                                               // 예외 대신 result.Code
+if (result.Success) long count = result.GetTuple("Count").L();
+```
+MFC(C++) 에서는 `src/InspectionView.Bridge/ivbridge.h` 의 C API 를 쓴다 (`ivb_job_load` → `ivb_job_set_image` → `ivb_job_run` → `ivb_job_get_doubles`).
+
 ## 다음 단계
-1. Runtime: Job zip 입출력, 입출력 터미널 바인딩, C++/CLI 브리지
-2. 카메라 공통 인터페이스 + 벤더 플러그인, 2.5D 연산자군
+1. 카메라 공통 인터페이스 + 벤더 플러그인, GPU 연산자, 2.5D 연산자군

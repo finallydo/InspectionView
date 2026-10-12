@@ -26,6 +26,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InspectionView.Core.Tests",
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InspectionView.Script.Tests", "tests\InspectionView.Script.Tests\InspectionView.Script.Tests.csproj", "{6F1D2A3B-6666-4B2C-9D3E-0F1A2B3C4D06}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InspectionView.Runtime.Tests", "tests\InspectionView.Runtime.Tests\InspectionView.Runtime.Tests.csproj", "{6F1D2A3B-7777-4B2C-9D3E-0F1A2B3C4D07}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "InspectionView.Bridge", "src\InspectionView.Bridge\InspectionView.Bridge.vcxproj", "{7C2D4F1E-3A5B-4E6C-9D8F-1B2C3D4E5F60}"
+	ProjectSection(ProjectDependencies) = postProject
+		{6F1D2A3B-3333-4B2C-9D3E-0F1A2B3C4D03} = {6F1D2A3B-3333-4B2C-9D3E-0F1A2B3C4D03}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -60,6 +67,14 @@ Global
 		{6F1D2A3B-6666-4B2C-9D3E-0F1A2B3C4D06}.Debug|x64.Build.0 = Debug|x64
 		{6F1D2A3B-6666-4B2C-9D3E-0F1A2B3C4D06}.Release|x64.ActiveCfg = Release|x64
 		{6F1D2A3B-6666-4B2C-9D3E-0F1A2B3C4D06}.Release|x64.Build.0 = Release|x64
+		{6F1D2A3B-7777-4B2C-9D3E-0F1A2B3C4D07}.Debug|x64.ActiveCfg = Debug|x64
+		{6F1D2A3B-7777-4B2C-9D3E-0F1A2B3C4D07}.Debug|x64.Build.0 = Debug|x64
+		{6F1D2A3B-7777-4B2C-9D3E-0F1A2B3C4D07}.Release|x64.ActiveCfg = Release|x64
+		{6F1D2A3B-7777-4B2C-9D3E-0F1A2B3C4D07}.Release|x64.Build.0 = Release|x64
+		{7C2D4F1E-3A5B-4E6C-9D8F-1B2C3D4E5F60}.Debug|x64.ActiveCfg = Debug|x64
+		{7C2D4F1E-3A5B-4E6C-9D8F-1B2C3D4E5F60}.Debug|x64.Build.0 = Debug|x64
+		{7C2D4F1E-3A5B-4E6C-9D8F-1B2C3D4E5F60}.Release|x64.ActiveCfg = Release|x64
+		{7C2D4F1E-3A5B-4E6C-9D8F-1B2C3D4E5F60}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -72,6 +87,8 @@ Global
 		{5B3C0E6A-2D7F-4C7B-9C1E-7A1F0B2D3E44} = {A1B2C3D4-0001-4000-8000-000000000001}
 		{6F1D2A3B-5555-4B2C-9D3E-0F1A2B3C4D05} = {A1B2C3D4-0002-4000-8000-000000000002}
 		{6F1D2A3B-6666-4B2C-9D3E-0F1A2B3C4D06} = {A1B2C3D4-0002-4000-8000-000000000002}
+		{6F1D2A3B-7777-4B2C-9D3E-0F1A2B3C4D07} = {A1B2C3D4-0002-4000-8000-000000000002}
+		{7C2D4F1E-3A5B-4E6C-9D8F-1B2C3D4E5F60} = {A1B2C3D4-0001-4000-8000-000000000001}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C0FFEE00-1234-4A5B-9C8D-0123456789AB}
