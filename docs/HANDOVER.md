@@ -1,7 +1,25 @@
-# InspectionView 인수인계 (2026-10-12)
+# InspectionView 인수인계 (2026-10-13 갱신)
 
 다음 세션(Opus)이 바로 이어서 작업할 수 있도록 현재 상태, 작업 방식, 미완료 항목, 함정을 정리한다.
 규칙/구조의 원본은 `CLAUDE.md` 이고, 이 문서는 "지금 어디까지 왔고 다음에 무엇을 할지" 다.
+
+## 0. 현재 진행 상황 (2026-10-13, 먼저 읽을 것)
+사용자와 합의한 순서. **각 단계가 끝나면 다음 단계로 넘어가자고 먼저 말한다.**
+
+1. **[진행 중] 실기 검증** — 벤더 카메라 플러그인 + IDE 기능(OpenGL 뷰어, Nodes 탭, 상태줄 GPU 표시, Gpu 백엔드 타이밍, §7 스크립트)
+   - 2026-10-13: pylon 플러그인 `PylonCameraProvider.cs` 의 `ComputeStride` 컴파일 오류(CS1501/CS0023) 확인.
+     실제 API 는 `int? IGrabResult.ComputeStride()` (out 인수 없음, 계산 불가 시 null) → `long stride = result.ComputeStride() ?? 0;`.
+     사용자가 **로컬에서 수정함** (저장소 main 에는 아직 반영 안 됨 — 사용자 push 여부 확인 후, 안 됐으면 같은 수정 커밋).
+   - **사용자 PC 에 있는 카메라는 Vieworks 카메라뿐**이다 (Basler/FLIR/Hikrobot 실물 없음). 그래서 pylon/Spinnaker 는 "컴파일 + 카메라 없음 상태에서 Enumerate 가 빈 목록/예외 없이 동작" 까지만 확인 가능.
+   - Vieworks 지원 추가 검토 중. 설치 경로: `C:\Program Files\Vieworks\VZViewer`. 그 안의 SDK 구성(.NET 어셈블리 / C DLL + 헤더 / GenTL `.cti`)과 카메라 인터페이스(GigE·USB3·CoaXPress·CameraLink)를 사용자에게 받아서 방식 결정:
+     - GenTL producer(`.cti`) 가 있으면 → 벤더 전용보다 **범용 GenTL 플러그인**(`InspectionView.Cameras.GenTL`)이 이후 다른 벤더에도 재사용 가능.
+     - .NET 어셈블리가 있으면 → 기존 Pylon/Spinnaker 패턴(`IV_HAS_VIEWORKS`, csproj 에서 SDK 경로 탐색, `CameraBase` 상속).
+     - C DLL 만 있으면 → P/Invoke 래퍼.
+     - CoaXPress/CameraLink 라면 카메라가 아니라 **프레임그래버 SDK**(Euresys/Matrox/Dalsa/Vieworks 그래버) 쪽이 실제 취득 경로.
+2. **[대기] 정리 작업** — `MainViewModel.DisplayRequested` 미사용 경고(CS0067) 제거, `CameraFrames.FromPixelFormat` 에 stride 0 이 넘어오는 경로 점검.
+3. **[대기] 에지 기반 shape 매칭** (Halcon `find_shape_model` 대응) — 실용성 가장 큼.
+4. **[대기] 카메라 캘리브레이션** (내부 파라미터/왜곡, 픽셀→mm).
+5. 이후 필요 시: 시트오브라이트 기하 캘리브레이션, 3D 높이맵 보기, 영역 연산자 GPU, CUDA 커널.
 
 ## 1. 한 줄 요약
 OpenCV(OpenCvSharp4) 기반 Halcon/HDevelop 대체 툴. C# .NET 8 + net48 멀티타겟 Core/Script/Runtime, WPF IDE(App),
@@ -36,7 +54,7 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
 6. 3차 연산자: MeasurePairs, NCC 회전/스케일 탐색. **교훈**: 회전/스케일 템플릿은 픽셀 인덱스 중심 `((w-1)/2, (h-1)/2)` 기준으로 워프하고, 보고 좌표는 기존 관례대로 픽셀 경계 좌표(+0.5). 계단형 합성 테스트 이미지는 반 픽셀 정렬에 민감하므로 테스트용 모양은 살짝 흐린다.
 
 ## 5. 미완료 / 다음 후보
-- **벤더 카메라 플러그인은 미검증**: SDK 없이 작성. 사용자 PC 에는 pylon 과 Spinnaker 가 설치되어 있어 (`SDK true` 로 인식됨) 실제 컴파일이 되며, 첫 빌드에서 나온 오류(이름 충돌, `ManagedCameraList` using, `GetNode<INode>`)는 수정했다. 추가 컴파일/런타임 오류는 사용자가 붙여 주는 VS 오류 목록으로 고친다 (CI 는 SDK 가 없어 스텁만 컴파일한다).
+- **벤더 카메라 플러그인은 미검증**: SDK 없이 작성. 사용자 PC 에는 pylon 과 Spinnaker 가 설치되어 있어 (`SDK true` 로 인식됨) 실제 컴파일이 되며, 첫 빌드에서 나온 오류(이름 충돌, `ManagedCameraList` using, `GetNode<INode>`)는 수정했다. 두 번째 빌드에서 pylon `ComputeStride` 시그니처 오류(§0)가 나왔다. 추가 컴파일/런타임 오류는 사용자가 붙여 주는 VS 오류 목록으로 고친다 (CI 는 SDK 가 없어 스텁만 컴파일한다).
 - Hikrobot MVS 는 사용자 PC 에 SDK 가 없어(`SDK false`) 아직 실제 컴파일된 적이 없다.
 - 시트오브라이트 기하 캘리브레이션(현재는 `DisparityToHeight` 선형 변환만), 카메라 캘리브레이션, 에지 기반 shape 매칭.
 - CUDA 커널(Native 에는 메모리/동기화만), Threshold/Connection 등 영역 연산자의 GPU 경로.
