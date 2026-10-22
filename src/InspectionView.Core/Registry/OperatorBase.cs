@@ -72,7 +72,7 @@ namespace InspectionView.Core.Registry
         public ExecutionRecord Execute(OperatorContext? ctx = null)
         {
             ctx = ctx ?? OperatorContext.Default;
-            var record = new ExecutionRecord(Name);
+            var record = new ExecutionRecord(Name) { Line = ctx.Line };
             var sw = Stopwatch.StartNew();
 
             try

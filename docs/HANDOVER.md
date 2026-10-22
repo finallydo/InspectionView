@@ -62,7 +62,7 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
 3. 시트오브라이트 기하 캘리브레이션 (2번에 의존)
 4. 뷰어 3D 높이맵 보기 (GL 작업, PC 확인 필수)
 5. 후순위: CUDA 커널(사용자 PC 는 Intel UHD 630 이라 검증 불가), 영역 연산자 GPU 경로
-- 끼워 넣을 정리: `MainViewModel.DisplayRequested` 미사용 경고(CS0067)
+- ~~끼워 넣을 정리: `MainViewModel.DisplayRequested` 미사용 경고(CS0067)~~ (제거)
 
 ## 5-1. 미완료 / 참고
 - **GenTL 공급자는 실기 미검증** (§4-7). GenApi 미구현 부분: 레지스터 캐시/pInvalidator, 청크 데이터, 이벤트, pValueCopy, SmartFeature/ConfRom 등 구형 노드. 필요해지면 추가.
@@ -71,7 +71,7 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
 - CUDA 커널(Native 에는 메모리/동기화만), Threshold/Connection 등 영역 연산자의 GPU 경로.
 - 뷰어의 3D 높이맵 보기 (Float32 높이 이미지는 2D 로만 표시).
 - 노드 UI 제한: 직선형 스크립트만 그래프로 표현. if/for 가 있으면 From Script 가 거부하고 이유를 상태줄에 표시.
-- App 의 `MainViewModel.DisplayRequested` 미사용 경고(CS0067) 정리.
+
 
 ## 6. 사용자 PC 빌드에서 알아둘 것
 - `dotnet build InspectionView.sln` 은 C++ 프로젝트 때문에 실패 → VS 또는 `msbuild InspectionView.sln -restore -p:Configuration=Debug -p:Platform=x64`.

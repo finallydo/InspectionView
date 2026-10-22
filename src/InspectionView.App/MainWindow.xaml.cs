@@ -73,7 +73,6 @@ namespace InspectionView.App
 
             _vm.PropertyChanged += OnViewModelPropertyChanged;
             _vm.GoToLineRequested += GoToLine;
-            _vm.DisplayRequested += ShowVariable;
             _vm.ResultsRequested += ShowResults;
             _vm.ScriptDisplayRequested += OnScriptDisplay;
             _vm.ScriptClearWindowRequested += OnScriptClearWindow;

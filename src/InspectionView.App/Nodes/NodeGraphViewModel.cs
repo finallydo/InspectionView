@@ -99,6 +99,18 @@ namespace InspectionView.App.Nodes
         public string Category => Descriptor?.Category ?? "";
         public string ToolTip => Descriptor?.Signature ?? Model.Operator;
 
+        // ---- 실행 상태 (스크립트 실행 줄/오류 줄/실행 기록을 노드에 표시) ----
+        private bool _isCurrent;
+        private bool _hasError;
+        private string? _timeText;
+
+        /// <summary>지금 실행할(멈춘) 줄의 노드.</summary>
+        public bool IsCurrent { get => _isCurrent; set => Set(ref _isCurrent, value); }
+        /// <summary>오류가 난 줄의 노드.</summary>
+        public bool HasError { get => _hasError; set => Set(ref _hasError, value); }
+        /// <summary>마지막 실행 시간과 백엔드 (예: "1.23 ms Gpu"). 실행 전이면 null (노드 아래 표시 없음).</summary>
+        public string? TimeText { get => _timeText; set => Set(ref _timeText, value); }
+
         public Point Location
         {
             get => _location;
@@ -336,6 +348,26 @@ namespace InspectionView.App.Nodes
         /// 뷰가 노드 크기를 재서 <see cref="AutoLayout"/> 을 호출한다.
         /// </summary>
         public event Action? MeasuredLayoutRequested;
+
+        /// <summary>
+        /// 스크립트 실행 상태를 노드에 반영한다: <paramref name="currentLine"/> 의 노드를 강조, <paramref name="errorLine"/> 의 노드를 오류로,
+        /// 실행 기록(줄 번호가 있는 것)은 그 줄 노드의 마지막 실행 시간으로 표시한다. 노드 줄 번호는 스크립트에서 읽거나 스크립트로 쓸 때 정해진다.
+        /// </summary>
+        public void ShowExecution(int currentLine, int errorLine, IReadOnlyList<InspectionView.Core.Registry.ExecutionRecord> records)
+        {
+            var last = new Dictionary<int, InspectionView.Core.Registry.ExecutionRecord>();
+            foreach (var r in records)
+                if (r.Line > 0) last[r.Line] = r;
+            foreach (var vm in Nodes)
+            {
+                int line = vm.Model.Line;
+                vm.IsCurrent = line > 0 && line == currentLine;
+                vm.HasError = line > 0 && line == errorLine;
+                vm.TimeText = line > 0 && last.TryGetValue(line, out var rec)
+                    ? $"{rec.Elapsed.TotalMilliseconds:0.###} ms  {rec.Used}"
+                    : null;
+            }
+        }
 
         /// <summary>
         /// 데이터 흐름 깊이별 열로 배치한다. <paramref name="measure"/> 가 노드의 실제 크기를 주면 열 폭/행 높이를 거기에 맞추고

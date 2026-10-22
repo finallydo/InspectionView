@@ -291,6 +291,7 @@ namespace InspectionView.Script.Runtime
             OperatorResult result;
             try
             {
+                Context.Line = call.Line;
                 result = OperatorInvoker.InvokeOrThrow(Registry, descriptor.Name, args, named, Context);
             }
             catch (VisionException ex)

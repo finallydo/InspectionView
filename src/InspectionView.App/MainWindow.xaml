@@ -338,6 +338,7 @@
                                     <ListView.View>
                                         <GridView>
                                             <GridViewColumn Header="#" Width="40" DisplayMemberBinding="{Binding Index}" />
+                                            <GridViewColumn Header="Line" Width="45" DisplayMemberBinding="{Binding Line}" />
                                             <GridViewColumn Header="Operator" Width="140" DisplayMemberBinding="{Binding Operator}" />
                                             <GridViewColumn Header="Backend" Width="160" DisplayMemberBinding="{Binding Backend}" />
                                             <GridViewColumn Header="Time (ms)" Width="90" DisplayMemberBinding="{Binding Milliseconds, StringFormat={}{0:F3}}" />

@@ -137,8 +137,12 @@ namespace InspectionView.Script.Graph
         {
             if (registry == null) throw new ArgumentNullException(nameof(registry));
             var sb = new StringBuilder();
+            int line = 0;
             foreach (var node in TopologicalOrder())
+            {
+                node.Line = ++line;          // 쓴 스크립트의 줄 번호 (실행 중 노드 강조에 쓴다)
                 sb.Append(NodeToLine(node, registry)).Append('\n');
+            }
             return sb.ToString();
         }
 

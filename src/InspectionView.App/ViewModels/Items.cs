@@ -162,10 +162,13 @@ namespace InspectionView.App.ViewModels
         public string Backend { get; }
         public double Milliseconds { get; }
         public string Result { get; }
+        /// <summary>호출한 스크립트 줄 (스크립트 밖이면 빈 칸).</summary>
+        public string Line { get; }
 
         public ProfileItem(int index, ExecutionRecord r)
         {
             Index = index;
+            Line = r.Line > 0 ? r.Line.ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
             Operator = r.OperatorName;
             Backend = r.FellBack ? $"{r.Used} (requested {r.Requested})" : r.Used.ToString();
             Milliseconds = r.Elapsed.TotalMilliseconds;

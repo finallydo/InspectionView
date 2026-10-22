@@ -85,9 +85,6 @@ namespace InspectionView.App.ViewModels
         /// <summary>UI 가 알아야 하는 요청: 캐럿을 특정 줄로 (오류 더블클릭 등).</summary>
         public event Action<int>? GoToLineRequested;
 
-        /// <summary>그래픽 창에 변수를 표시해 달라는 요청 (변수창 선택).</summary>
-        public event Action<VariableItem>? DisplayRequested;
-
         /// <summary>실행이 멈춘 뒤 바뀐 아이코닉 변수들(순서대로)을 표시해 달라는 요청 (자동 표시).</summary>
         public event Action<IReadOnlyList<VariableItem>>? ResultsRequested;
 
@@ -732,6 +729,7 @@ namespace InspectionView.App.ViewModels
                 lock (_output) OutputText = _output.ToString();
             }
 
+            bool profileChanged = _profileDirty;
             if (_profileDirty)
             {
                 _profileDirty = false;
@@ -741,7 +739,19 @@ namespace InspectionView.App.ViewModels
                 for (int i = Profile.Count; i < records.Count; i++)
                     Profile.Add(new ProfileItem(i + 1, records[i]));
             }
+
+            // 노드 편집기: 실행 줄/오류 줄/노드별 시간 (바뀌었을 때만)
+            int shownLine = State == EngineState.Paused || State == EngineState.Running ? CurrentLine : -1;
+            if (profileChanged || shownLine != _nodeShownLine || ErrorLine != _nodeShownError)
+            {
+                _nodeShownLine = shownLine;
+                _nodeShownError = ErrorLine;
+                NodeGraph.ShowExecution(shownLine, ErrorLine, Engine.Profiler.Records);
+            }
         }
+
+        private int _nodeShownLine = int.MinValue;
+        private int _nodeShownError = int.MinValue;
 
         public void ClearProfile()
         {

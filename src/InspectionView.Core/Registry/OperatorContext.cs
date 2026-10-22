@@ -18,6 +18,8 @@ namespace InspectionView.Core.Registry
         public TimeSpan Elapsed { get; internal set; }
         public ErrorCode Code { get; internal set; } = ErrorCode.Unknown;
         public string? Message { get; internal set; }
+        /// <summary>호출한 스크립트 줄 (1부터, 0 = 스크립트 밖). 노드 편집기가 노드별 실행 시간을 표시하는 데 쓴다.</summary>
+        public int Line { get; internal set; }
 
         /// <summary>요청과 다른 백엔드로 폴백했는지.</summary>
         public bool FellBack => Requested != BackendKind.Auto && Requested != Used;
@@ -98,6 +100,9 @@ namespace InspectionView.Core.Registry
 
         /// <summary>진단 메시지 출력 (null 이면 무시).</summary>
         public Action<string>? Log { get; set; }
+
+        /// <summary>지금 실행 중인 스크립트 줄 (인터프리터가 연산자 호출 직전에 설정, 실행 기록에 남는다).</summary>
+        public int Line { get; set; }
 
         public IDeviceAllocator? Gpu => Settings.Gpu;
         public int ParallelDegree => Settings.ParallelDegree;
