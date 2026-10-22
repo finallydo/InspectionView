@@ -220,8 +220,13 @@
                                 </DockPanel>
                             </ad:LayoutAnchorable>
                             <ad:LayoutAnchorable Title="Operators" ContentId="operators" CanClose="False" CanHide="False">
+                                <DockPanel>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="2">
+                                    <ToggleButton IsChecked="{Binding OperatorsAlphabetical}" Padding="6,0" ToolTip="Show all operators sorted by name instead of by category">A-Z</ToggleButton>
+                                    <TextBlock Text="Type letters to jump" Foreground="Gray" VerticalAlignment="Center" Margin="6,0,0,0" FontSize="11" />
+                                </StackPanel>
                                 <TreeView x:Name="OperatorTreeView" ItemsSource="{Binding OperatorTree}"
-                                          MouseDoubleClick="OnOperatorDoubleClick" BorderThickness="0">
+                                          MouseDoubleClick="OnOperatorDoubleClick" PreviewTextInput="OnOperatorTextInput" BorderThickness="0">
                                     <TreeView.ItemTemplate>
                                         <HierarchicalDataTemplate DataType="{x:Type vm:OperatorNode}" ItemsSource="{Binding Children}">
                                             <TextBlock Text="{Binding Name}" ToolTip="{Binding ToolTip}" />
@@ -229,10 +234,13 @@
                                     </TreeView.ItemTemplate>
                                     <TreeView.ItemContainerStyle>
                                         <Style TargetType="TreeViewItem">
-                                            <Setter Property="IsExpanded" Value="True" />
+                                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                            <EventSetter Event="Selected" Handler="OnOperatorItemSelected" />
                                         </Style>
                                     </TreeView.ItemContainerStyle>
                                 </TreeView>
+                                </DockPanel>
                             </ad:LayoutAnchorable>
                         </ad:LayoutAnchorablePane>
 

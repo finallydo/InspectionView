@@ -52,8 +52,8 @@ namespace InspectionView.App
         {
             // 명령과 뷰모델은 XAML 의 ElementName 바인딩이 읽기 전에 만들어져 있어야 한다.
             _vm = new MainViewModel(a => Dispatcher.BeginInvoke(a));
-            RunCommand = new RelayCommand(() => _vm.Run(Editor.Text), () => _vm.CanRun);
-            StepCommand = new RelayCommand(() => _vm.Step(Editor.Text), () => _vm.CanRun);
+            RunCommand = new RelayCommand(() => { SyncNodesToScript(); _vm.Run(Editor.Text); }, () => _vm.CanRun);
+            StepCommand = new RelayCommand(() => { SyncNodesToScript(); _vm.Step(Editor.Text); }, () => _vm.CanRun);
             StopCommand = new RelayCommand(() => _vm.Stop(), () => _vm.CanStop);
             ResetCommand = new RelayCommand(() => _vm.Reset(), () => _vm.CanRun);
             ToggleBreakpointCommand = new RelayCommand(ToggleBreakpointAtCaret);
@@ -706,7 +706,13 @@ namespace InspectionView.App
         // ------------------------------------------------------------------
 
         private string _nodeSyncedScript = "";
+        /// <summary>그래프가 현재 스크립트에서 만들어졌는지 (if/for 등으로 변환에 실패했으면 false: 그래프로 스크립트를 덮어쓰지 않는다).</summary>
+        private bool _graphMatchesScript;
 
+        /// <summary>
+        /// 스크립트와 노드 그래프는 한쪽만 보이므로 탭을 바꿀 때 맞춘다: Nodes 탭으로 오면 스크립트가 바뀐 경우 다시 읽고,
+        /// Nodes 탭을 떠나거나 실행(F5/F6)할 때 그래프가 바뀌었으면 스크립트에 쓴다.
+        /// </summary>
         private void SetupNodeEditor()
         {
             NodeEditor.FromScriptRequested += NodesFromScript;
@@ -716,17 +722,35 @@ namespace InspectionView.App
                 if (NodesToScript() && _vm.CanRun)
                     _vm.Run(Editor.Text);
             };
-            // Nodes 탭을 열 때 스크립트가 바뀌어 있으면 다시 읽는다
-            NodesDocument.IsActiveChanged += (s, e) =>
+            NodesDocument.IsSelectedChanged += (s, e) =>
             {
-                if (NodesDocument.IsActive && Editor.Text != _nodeSyncedScript && !_vm.NodeGraph.IsDirty)
-                    NodesFromScript();
+                if (NodesDocument.IsSelected) SyncScriptToNodes();
+                else SyncNodesToScript();
             };
+        }
+
+        /// <summary>Nodes 탭을 열 때: 스크립트가 마지막 동기화 이후 바뀌었으면 그래프를 다시 만든다.</summary>
+        private void SyncScriptToNodes()
+        {
+            if (Editor.Text != _nodeSyncedScript)
+                NodesFromScript();
+        }
+
+        /// <summary>그래프가 바뀌었으면 스크립트에 쓴다 (그래프가 현재 스크립트에서 온 경우만).</summary>
+        private void SyncNodesToScript()
+        {
+            if (!_vm.NodeGraph.IsDirty)
+                return;
+            if (_graphMatchesScript || string.IsNullOrWhiteSpace(Editor.Text))
+                NodesToScript();
+            else
+                _vm.StatusText = "Nodes not written: the script has statements nodes cannot show (if/for/Print ...). Use 'To Script' to overwrite it.";
         }
 
         private void NodesFromScript()
         {
-            if (_vm.NodeGraph.LoadFromScript(Editor.Text))
+            _graphMatchesScript = _vm.NodeGraph.LoadFromScript(Editor.Text);
+            if (_graphMatchesScript)
                 _nodeSyncedScript = Editor.Text;
             _vm.StatusText = _vm.NodeGraph.Status;
         }
@@ -737,7 +761,9 @@ namespace InspectionView.App
             {
                 string script = _vm.NodeGraph.ToScript();
                 _nodeSyncedScript = script;
-                Editor.Text = script;
+                _graphMatchesScript = true;
+                if (Editor.Text != script)
+                    Editor.Document.Replace(0, Editor.Document.TextLength, script);   // Text 대입은 실행 취소 기록을 지운다
                 _vm.StatusText = "Script updated from nodes";
                 return true;
             }
@@ -745,6 +771,57 @@ namespace InspectionView.App
             {
                 _vm.StatusText = "Nodes -> script failed: " + ex.Message;
                 return false;
+            }
+        }
+
+        // ---- Operators 창: 첫 글자로 찾기 (탐색기처럼) ----
+        private string _operatorSearch = "";
+        private int _operatorSearchTime;
+
+        /// <summary>
+        /// 글자를 치면 그 글자로 시작하는 연산자로 이동한다. 1초 안에 이어 치면 접두사로 찾고(예: "th" → Threshold),
+        /// 같은 글자를 반복하면 그 글자로 시작하는 다음 연산자로 넘어간다. 접힌 카테고리 안이면 펼친다.
+        /// </summary>
+        private void OnOperatorTextInput(object sender, TextCompositionEventArgs e)
+        {
+            if (string.IsNullOrEmpty(e.Text) || char.IsControl(e.Text[0]) || char.IsWhiteSpace(e.Text[0]))
+                return;
+            if (Environment.TickCount - _operatorSearchTime > 1000)
+                _operatorSearch = "";
+            _operatorSearchTime = Environment.TickCount;
+
+            bool cycle = _operatorSearch.Length == 1 && string.Equals(_operatorSearch, e.Text, StringComparison.OrdinalIgnoreCase);
+            if (!cycle)
+                _operatorSearch += e.Text;
+
+            var leaves = new List<OperatorNode>();
+            foreach (var n in _vm.OperatorTree)
+            {
+                if (n.IsCategory) leaves.AddRange(n.Children);
+                else leaves.Add(n);
+            }
+            if (leaves.Count == 0) return;
+
+            int current = OperatorTreeView.SelectedItem is OperatorNode sel ? leaves.IndexOf(sel) : -1;
+            int start = cycle ? current + 1 : Math.Max(0, current);
+            for (int k = 0; k < leaves.Count; k++)
+            {
+                var cand = leaves[(start + k) % leaves.Count];
+                if (!cand.Name.StartsWith(_operatorSearch, StringComparison.OrdinalIgnoreCase)) continue;
+                if (cand.Parent != null) cand.Parent.IsExpanded = true;
+                cand.IsSelected = true;
+                break;
+            }
+            e.Handled = true;
+        }
+
+        /// <summary>코드로 선택한 항목도 보이게 스크롤한다.</summary>
+        private void OnOperatorItemSelected(object sender, RoutedEventArgs e)
+        {
+            if (sender is TreeViewItem item && ReferenceEquals(e.OriginalSource, item))
+            {
+                item.BringIntoView();
+                item.Focus();
             }
         }
 

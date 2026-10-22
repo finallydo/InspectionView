@@ -71,9 +71,17 @@ namespace InspectionView.App.ViewModels
         }
     }
 
-    /// <summary>연산자 트리 노드 (카테고리 또는 연산자).</summary>
-    public sealed class OperatorNode
+    /// <summary>연산자 트리 노드 (카테고리 또는 연산자). 선택/펼침은 키보드 이동(첫 글자 찾기)에서 코드로 바꾼다.</summary>
+    public sealed class OperatorNode : ObservableObject
     {
+        private bool _isSelected;
+        private bool _isExpanded = true;
+
+        public bool IsSelected { get => _isSelected; set => Set(ref _isSelected, value); }
+        public bool IsExpanded { get => _isExpanded; set => Set(ref _isExpanded, value); }
+        /// <summary>카테고리 아래 연산자면 그 카테고리 (가나다순 보기에서는 null).</summary>
+        public OperatorNode? Parent { get; set; }
+
         public string Name { get; }
         public string? Description { get; }
         public string? Signature { get; }

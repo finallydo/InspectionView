@@ -790,14 +790,34 @@ namespace InspectionView.App.ViewModels
         // 연산자 트리
         // ------------------------------------------------------------------
 
+        private bool _operatorsAlphabetical;
+
+        /// <summary>Operators 창: true 면 카테고리 없이 전체 연산자를 이름순으로.</summary>
+        public bool OperatorsAlphabetical
+        {
+            get => _operatorsAlphabetical;
+            set
+            {
+                if (Set(ref _operatorsAlphabetical, value))
+                    BuildOperatorTree();
+            }
+        }
+
         private void BuildOperatorTree()
         {
             OperatorTree.Clear();
+            if (_operatorsAlphabetical)
+            {
+                foreach (var d in Registry.Categories.SelectMany(c => Registry.ByCategory(c))
+                             .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
+                    OperatorTree.Add(new OperatorNode(d));
+                return;
+            }
             foreach (var category in Registry.Categories)
             {
                 var node = new OperatorNode(category);
                 foreach (var d in Registry.ByCategory(category))
-                    node.Children.Add(new OperatorNode(d));
+                    node.Children.Add(new OperatorNode(d) { Parent = node });
                 OperatorTree.Add(node);
             }
         }
