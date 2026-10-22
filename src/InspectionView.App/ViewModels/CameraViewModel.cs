@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -95,6 +96,13 @@ namespace InspectionView.App.ViewModels
         private bool _liveRunning;
         private long _shownFrame = -1;
         private int _lastStatusRefresh;
+        private bool _liveRestarting;          // 파라미터 적용을 위해 라이브를 잠깐 멈춘 동안 (Tick 이 라이브 종료로 오해하지 않게)
+        // 라이브 통계 (1초마다 Info 에 표시)
+        private long _statFrames0;
+        private int _statShown;
+        private double _statLatencySum;
+        private int _statLatencyCount;
+        private int _statStart;
         private string _info = "";
 
         public CameraViewModel(VariableTable variables, Action<string> status)
@@ -103,7 +111,8 @@ namespace InspectionView.App.ViewModels
             _status = status;
             _dispatcher = Dispatcher.CurrentDispatcher;
             // 라이브 표시는 100ms 공용 타이머가 아니라 약 30fps 전용 타이머로 (프레임은 항상 최신 것만)
-            _liveTimer = new DispatcherTimer(DispatcherPriority.Render, _dispatcher) { Interval = TimeSpan.FromMilliseconds(30) };
+            // 우선순위는 입력보다 낮게 (Render 로 두면 마우스/키보드 처리가 밀려 프로그램 전체가 버벅인다)
+            _liveTimer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher) { Interval = TimeSpan.FromMilliseconds(30) };
             _liveTimer.Tick += (_, __) => ShowLatestFrame();
             RefreshProviders();
         }
@@ -329,6 +338,7 @@ namespace InspectionView.App.ViewModels
                 else
                 {
                     StopLiveDisplay();
+                    Info = $"{cam.Info.Provider}: {cam.Info.DisplayName}";
                     Enqueue("Live", () => cam.StopAcquisition(), () => RefreshParameterValues());
                 }
             }
@@ -338,7 +348,45 @@ namespace InspectionView.App.ViewModels
         {
             _liveRunning = true;
             _shownFrame = -1;
+            ResetLiveStats();
             _liveTimer.Start();
+        }
+
+        private void ResetLiveStats()
+        {
+            _statFrames0 = Camera is CameraBase cb ? cb.FrameCount : 0;
+            _statShown = 0;
+            _statLatencySum = 0;
+            _statLatencyCount = 0;
+            _statStart = Environment.TickCount;
+        }
+
+        /// <summary>
+        /// 라이브 통계를 Info 에 표시: 카메라에서 받은 fps, 화면에 그린 fps, 수신→표시 지연, 건너뛴/불완전 프레임.
+        /// 수신 fps 가 카메라 설정보다 낮으면 카메라/네트워크 쪽, 표시 지연이 크면 이 프로그램 쪽 문제다.
+        /// </summary>
+        private void UpdateLiveStats()
+        {
+            var cam = Camera;
+            int elapsed = Environment.TickCount - _statStart;
+            if (cam == null || elapsed < 1000) return;
+            double sec = elapsed / 1000.0;
+            long frames = cam is CameraBase cb ? cb.FrameCount : 0;
+            double camFps = (frames - _statFrames0) / sec;
+            double shownFps = _statShown / sec;
+            string latency = _statLatencyCount > 0 ? $"{_statLatencySum / _statLatencyCount:0} ms" : "n/a";
+            string Get(string n) => Format(SafeGetStatus(cam, n));
+            Info = $"Live: received {camFps:0.0} fps, shown {shownFps:0.0} fps, receive→show {latency}, skipped {Get("SkippedFrames")}, incomplete {Get("IncompleteFrames")}";
+            ResetLiveStats();
+        }
+
+        /// <summary>상태 값만 읽는다 (장치 기능이면 읽지 않음: UI 스레드에서 장치 I/O 금지).</summary>
+        private static object? SafeGetStatus(ICamera cam, string name)
+        {
+            foreach (var p in cam.Parameters)
+                if (p.IsStatus && string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))
+                    return SafeGet(cam, name);
+            return null;
         }
 
         private void StopLiveDisplay()
@@ -357,7 +405,16 @@ namespace InspectionView.App.ViewModels
             var frame = cam.GetLatestFrame();
             if (frame == null) return;
             _shownFrame = count;
-            try { LiveFrame?.Invoke(frame); }
+            try
+            {
+                LiveFrame?.Invoke(frame);
+                _statShown++;
+                if (frame.Metadata.TryGetValue("ReceivedTicks", out var t) && t is long received)
+                {
+                    _statLatencySum += (Stopwatch.GetTimestamp() - received) * 1000.0 / Stopwatch.Frequency;
+                    _statLatencyCount++;
+                }
+            }
             finally { frame.Release(); }
         }
 
@@ -416,16 +473,37 @@ namespace InspectionView.App.ViewModels
                 return;
             }
             object? arg = item.Info.Type == CameraParameterType.Command ? null : value;
+            bool live = _liveRunning;
+            if (live) _liveRestarting = true;
             Enqueue($"Camera parameter '{item.Name}'", () =>
             {
-                cam.SetParameter(item.Name, arg);
+                try
+                {
+                    cam.SetParameter(item.Name, arg);
+                }
+                catch (Exception) when (cam.IsAcquiring)
+                {
+                    // 라이브 중 잠기는 기능(PixelFormat, Width, Height ...): 잠깐 멈추고 쓴 뒤 다시 시작
+                    cam.StopAcquisition();
+                    try
+                    {
+                        cam.SetParameter(item.Name, arg);
+                    }
+                    finally
+                    {
+                        cam.StartAcquisition();
+                    }
+                }
                 return Format(SafeGet(cam, item.Name));
             }, readBack =>
             {
+                _liveRestarting = false;
                 item.Refresh(readBack);
                 if (!_live) RefreshParameterValues();
+                else if (live) _shownFrame = -1;          // 형식/크기가 바뀌었을 수 있으니 다음 프레임을 바로 표시
             }, ex =>
             {
+                _liveRestarting = false;
                 item.Refresh(previous);
                 _status($"Camera parameter '{item.Name}': {ex.Message}");
             });
@@ -439,7 +517,7 @@ namespace InspectionView.App.ViewModels
         {
             if (!_liveRunning) return;
             var cam = Camera;
-            if (cam == null || !cam.IsAcquiring)
+            if (cam == null || (!cam.IsAcquiring && !_liveRestarting))
             {
                 StopLiveDisplay();
                 if (_live) { _live = false; OnPropertyChanged(nameof(Live)); }
@@ -449,6 +527,7 @@ namespace InspectionView.App.ViewModels
             {
                 _lastStatusRefresh = Environment.TickCount;
                 RefreshStatusValues();
+                UpdateLiveStats();
             }
         }
 

@@ -567,6 +567,7 @@ namespace InspectionView.Cameras.GenTL
                 _api.Check(rc, "EventGetData");
 
                 IntPtr buffer = *(IntPtr*)data;
+                long received = System.Diagnostics.Stopwatch.GetTimestamp();
                 while (newestOnly)
                 {
                     size = (UIntPtr)(2 * IntPtr.Size);
@@ -585,7 +586,11 @@ namespace InspectionView.Cameras.GenTL
                 {
                     if (_streaming) _api.DSQueueBuffer(_stream, buffer);
                 }
-                if (img != null) return img;
+                if (img != null)
+                {
+                    img.Metadata["ReceivedTicks"] = received;   // 지연 측정용 (Stopwatch 시각)
+                    return img;
+                }
                 if (Environment.TickCount - deadline >= 0)
                     throw new VisionException(ErrorCode.CameraTimeout, $"Only incomplete frames from '{Info.DisplayName}' within {timeoutMs} ms (IncompleteFrames = {Interlocked.Read(ref _incomplete)}).");
             }

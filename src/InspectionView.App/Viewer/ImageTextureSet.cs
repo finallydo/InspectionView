@@ -282,15 +282,42 @@ namespace InspectionView.App.Viewer
             int step = Math.Max(1, (int)Math.Sqrt((double)image.Width * image.Height / maxSamples));
             double min = double.MaxValue, max = double.MinValue;
             int take = Math.Min(outCh, image.Channels);
-            for (int y = 0; y < image.Height; y += step)
+            int ch = image.Channels;
+            if (image.PixelType == PixelType.UInt8 || image.PixelType == PixelType.UInt16)
             {
-                for (int x = 0; x < image.Width; x += step)
+                // 라이브에서 프레임마다 돌므로 GetPixel 대신 행 포인터로 읽는다
+                bool wide = image.PixelType == PixelType.UInt16;
+                int lo = int.MaxValue, hi = int.MinValue;
+                byte* basePtr = (byte*)image.GetHostPointer(forWrite: false);
+                for (int y = 0; y < image.Height; y += step)
                 {
-                    for (int k = 0; k < take; k++)
+                    byte* row = basePtr + image.Stride * y;
+                    for (int x = 0; x < image.Width; x += step)
                     {
-                        double v = image.GetPixel(x, y, k);
-                        if (v < min) min = v;
-                        if (v > max) max = v;
+                        long i = (long)x * ch;
+                        for (int k = 0; k < take; k++)
+                        {
+                            int v = wide ? ((ushort*)row)[i + k] : row[i + k];
+                            if (v < lo) lo = v;
+                            if (v > hi) hi = v;
+                        }
+                    }
+                }
+                min = lo;
+                max = hi;
+            }
+            else
+            {
+                for (int y = 0; y < image.Height; y += step)
+                {
+                    for (int x = 0; x < image.Width; x += step)
+                    {
+                        for (int k = 0; k < take; k++)
+                        {
+                            double v = image.GetPixel(x, y, k);
+                            if (v < min) min = v;
+                            if (v > max) max = v;
+                        }
                     }
                 }
             }

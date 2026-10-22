@@ -287,7 +287,7 @@ namespace InspectionView.App
             viewer.RenderError += message => _vm.ReportViewerError($"Graphics {_viewers.IndexOf(viewer) + 1}: {message}");
             viewer.Log += message => _vm.LogViewer($"Graphics {_viewers.IndexOf(viewer) + 1}: {message}");
             viewer.InsertRoiRequested += InsertRoi;
-            viewer.ImageChanged += () => { if (ReferenceEquals(viewer, _activeViewer)) RefreshAnalysis(); };
+            viewer.ImageChanged += () => { if (ReferenceEquals(viewer, _activeViewer)) RequestAnalysis(); };
             viewer.RoiChanged += _ => { if (ReferenceEquals(viewer, _activeViewer)) RefreshHistogram(); };
             viewer.ProfileLineChanged += () => { if (ReferenceEquals(viewer, _activeViewer)) RefreshProfile(); };
         }
@@ -346,6 +346,38 @@ namespace InspectionView.App
             foreach (var a in _extraWindows.Values.ToArray())
                 a.Close();
             SetActiveViewer(Viewer);
+        }
+
+        private DispatcherTimer? _analysisTimer;
+        private bool _analysisPending;
+        private int _lastAnalysis;
+
+        /// <summary>
+        /// 이미지가 바뀌었을 때 히스토그램/라인 프로파일 갱신. 라이브처럼 연속으로 바뀌면 프레임마다 전체 픽셀을 다시 세지 않고
+        /// 최대 초당 3번만 (마지막 프레임 기준) 갱신한다.
+        /// </summary>
+        private void RequestAnalysis()
+        {
+            if (Environment.TickCount - _lastAnalysis >= 330)
+            {
+                _lastAnalysis = Environment.TickCount;
+                RefreshAnalysis();
+                return;
+            }
+            if (_analysisPending) return;
+            _analysisPending = true;
+            if (_analysisTimer == null)
+            {
+                _analysisTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(330) };
+                _analysisTimer.Tick += (_, __) =>
+                {
+                    _analysisTimer!.Stop();
+                    _analysisPending = false;
+                    _lastAnalysis = Environment.TickCount;
+                    RefreshAnalysis();
+                };
+            }
+            _analysisTimer.Start();
         }
 
         private void RefreshAnalysis()
