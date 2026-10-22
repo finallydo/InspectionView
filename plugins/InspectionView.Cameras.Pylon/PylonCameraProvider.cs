@@ -209,8 +209,7 @@ namespace InspectionView.Cameras.Pylon
                     string pixelFormat = result.PixelTypeValue.ToString();   // 예: Mono8, BayerRG8, RGB8packed
                     if (pixelFormat.EndsWith("packed", StringComparison.OrdinalIgnoreCase))
                         pixelFormat = pixelFormat.Substring(0, pixelFormat.Length - "packed".Length);
-                    long stride;
-                    if (!result.ComputeStride(out stride)) stride = 0;
+                    long stride = result.ComputeStride() ?? 0;
                     var img = CameraFrames.FromPixelFormat(pixelFormat, result.PixelDataPointer, result.Width, result.Height, stride);
                     img.Metadata["FrameId"] = result.ImageNumber;
                     img.Metadata["Timestamp"] = result.Timestamp;
