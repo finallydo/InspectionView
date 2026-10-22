@@ -81,7 +81,7 @@ namespace InspectionView.App.ViewModels
         private readonly Action<string> _status;
         private readonly Dispatcher _dispatcher;
         private readonly object _queueLock = new object();
-        private readonly DispatcherTimer _liveTimer;
+        private bool _renderHooked;
         private Task _queue = Task.CompletedTask;
         private int _pending;
         private int _enumVersion;
@@ -110,10 +110,6 @@ namespace InspectionView.App.ViewModels
             _variables = variables;
             _status = status;
             _dispatcher = Dispatcher.CurrentDispatcher;
-            // 라이브 표시는 100ms 공용 타이머가 아니라 약 30fps 전용 타이머로 (프레임은 항상 최신 것만)
-            // 우선순위는 입력보다 낮게 (Render 로 두면 마우스/키보드 처리가 밀려 프로그램 전체가 버벅인다)
-            _liveTimer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher) { Interval = TimeSpan.FromMilliseconds(30) };
-            _liveTimer.Tick += (_, __) => ShowLatestFrame();
             RefreshProviders();
         }
 
@@ -349,7 +345,13 @@ namespace InspectionView.App.ViewModels
             _liveRunning = true;
             _shownFrame = -1;
             ResetLiveStats();
-            _liveTimer.Start();
+            // 라이브 표시는 화면 갱신(vsync, 보통 60Hz)에 맞춘다. 30ms 타이머는 16.7ms 화면 주기와 어긋나
+            // 33/50ms 간격이 섞여 끊겨 보이고, 실제로 초당 18장 정도밖에 못 그렸다.
+            if (!_renderHooked)
+            {
+                System.Windows.Media.CompositionTarget.Rendering += OnRendering;
+                _renderHooked = true;
+            }
         }
 
         private void ResetLiveStats()
@@ -392,10 +394,16 @@ namespace InspectionView.App.ViewModels
         private void StopLiveDisplay()
         {
             _liveRunning = false;
-            _liveTimer.Stop();
+            if (_renderHooked)
+            {
+                System.Windows.Media.CompositionTarget.Rendering -= OnRendering;
+                _renderHooked = false;
+            }
         }
 
-        /// <summary>라이브 타이머(약 30ms): 새 프레임이 있으면 최신 것 하나만 활성 창에 보낸다.</summary>
+        private void OnRendering(object? sender, EventArgs e) => ShowLatestFrame();
+
+        /// <summary>화면 갱신마다: 새 프레임이 있으면 최신 것 하나만 활성 창에 보낸다.</summary>
         private void ShowLatestFrame()
         {
             var cam = Camera;
