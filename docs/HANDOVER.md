@@ -54,7 +54,7 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
 2. §7 빠른 확인 스크립트 F5: ~~뷰어 표시(36400x4000), 상태줄 GPU 표시~~ (확인), 타이밍 창의 Gpu 백엔드, 오버레이는 남음
 3. Camera 창: Simulation 카메라 스냅/라이브/파라미터
 4. Nodes 탭: From Script → 노드 이동 → To Script → Run
-5. **GenTL + Vieworks GigE 실기**: ~~열기/스냅/라이브/파라미터 쓰기~~ 동작 확인 (2026-10-22). 그때 나온 문제(라이브 지연, 스냅 후 그래픽 창 미갱신, 변수 더블클릭 무반응)를 수정 → 재확인 필요: 라이브 부드러움, `SkippedFrames`/`IncompleteFrames`, 파라미터 콤보박스
+5. ~~GenTL + Vieworks GigE 실기: 열기/스냅/라이브/파라미터, 라이브 끊김 수정~~ (2026-10-22 사용자 확인 완료)
 
 **2순위 — 기능 개발 (위에서부터)**
 1. 에지 기반 Shape 매칭 (`CreateShapeModel` / `FindShapeModel`): Halcon 대체의 핵심, NCC 는 조명 변화/가림에 약함
