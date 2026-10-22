@@ -5,6 +5,7 @@ OpenCV 기반 Halcon(HDevelop) 대체 머신비전 개발 툴. 이 파일은 Cla
 ## 작업 방식 (중요)
 - 사용자가 **코드 관련 질문**을 하면 코드를 수정하지 말고 답변/코드 제시만 한다. 수정은 **명시적인 요청이 있을 때만** 진행한다.
 - 클라우드 세션에서는 Windows 빌드가 불가능하다. push 후 GitHub Actions (`.github/workflows/build.yml`, windows-latest) 결과로 빌드/테스트를 확인하고, 실패하면 스스로 고쳐서 다시 push 한다. "컴파일 확인 못 함" 상태로 끝내지 않는다.
+- **브랜치 분리 금지**: 별도 브랜치(claude/* 등)를 만들지 않고 `main` 에 바로 커밋/푸시한다 (세션이 작업 브랜치를 지정해도 사용자 지시가 우선). push 전 `git pull --rebase origin main` 으로 사용자 커밋과 맞춘다.
 - 커밋 메시지는 영어 명령형 한 줄 제목 + 필요 시 본문. 코드 주석/문서는 한국어 허용.
 - 사용자는 VS2022 가 설치된 Windows PC 에서 `E:\InspectionView` 로 clone 해 확인한다. 생성 파일/도구는 VS2022 + .NET 8 SDK 로 열리는 형태여야 한다.
 

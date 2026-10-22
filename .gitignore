@@ -36,6 +36,10 @@ artifacts/
 *.swp
 *.DS_Store
 Thumbs.db
+# VS 프로젝트 업그레이드 로그
+UpgradeLog*.htm
+_UpgradeReport_Files/
+Backup*/
 
 # 실행 시 생성되는 폴더
 Plugins/*.dll

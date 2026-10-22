@@ -12,6 +12,7 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
 - 사용자 PC: Windows + VS2022, `E:\InspectionView` 로 clone, Intel UHD 630 (CUDA 없음). 사용자는 UI 를 실기에서 확인하고 스크린샷/오류를 붙여 준다.
 - 클라우드 세션은 Windows 빌드 불가 → **push 후 GitHub Actions(`.github/workflows/build.yml`, windows-latest) 로 빌드/테스트 확인**. 실패하면 로그(`get_job_logs failed_only`)를 읽고 고쳐 다시 push. "컴파일 확인 못 함" 으로 끝내지 않는다.
 - 사용자 선호: 코드 질문에는 코드만 보여 주고, **수정은 명시적 요청이 있을 때만**. 다만 사용자가 "물어보지 말고 순서대로 진행" 이라고 한 로드맵 작업은 묻지 않고 진행했다.
+- **브랜치 분리 금지 (2026-10-22)**: `main` 에 직접 커밋/푸시. 사용자도 PC 에서 main 에 커밋하므로 push 전 `git pull --rebase origin main`.
 - 커밋: 영어 명령형 제목 + 본문, 끝에 `Co-Authored-By` / `Claude-Session` 줄. 모델 이름은 코드/커밋에 넣지 않는다.
 - 테스트는 CI 에서 `dotnet test ... --no-build` 로 Core/Script/Runtime 세 프로젝트를 돌린다 (현재 Core 99, Script 23, Runtime 테스트 전부 통과).
 
