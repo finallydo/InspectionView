@@ -153,11 +153,13 @@ namespace InspectionView.App.ViewModels
             }
             try
             {
-                foreach (var d in p.Enumerate())
+                var found = p.Enumerate();
+                foreach (var d in found)
                     Devices.Add(d.DeviceId);
                 Info = p.Name == FileCameraProvider.ProviderName
                     ? "Device = folder, 'folder/*.png' pattern or file. Options: Loop, Recursive, AsGray, Fps"
-                    : $"{Devices.Count} device(s)";
+                    : found.Count == 0 ? "0 device(s)"
+                    : $"{found.Count} device(s): {string.Join("; ", found.Select(d => d.DisplayName))}";
             }
             catch (Exception ex)
             {

@@ -40,12 +40,11 @@ InspectionView/
 ├─ tests/
 │  ├─ InspectionView.Core.Tests/      xunit (Region 집합연산, Image/Mat 상호운용, 레지스트리, 연산자)
 │  ├─ InspectionView.Script.Tests/    xunit (렉서/파서/컴파일러/엔진)
-│  └─ InspectionView.Runtime.Tests/   xunit (Job 패키지, 러너, 파사드)
+│  ├─ InspectionView.Runtime.Tests/   xunit (Job 패키지, 러너, 파사드)
+│  └─ InspectionView.Cameras.GenTL.Tests/ xunit (GenICam 노드맵/수식, 설명 XML 로드, 패킹 픽셀)
 └─ plugins/                           플러그인 프로젝트 (App 빌드 후 출력의 Plugins/ 로 복사)
-   ├─ InspectionView.Cameras.Pylon/        Basler pylon (PYLON_DEV_DIR 가 있으면 SDK 와 컴파일, 없으면 '사용 불가' 스텁)
-   ├─ InspectionView.Cameras.Spinnaker/    FLIR/Teledyne Spinnaker (Program Files\Teledyne|FLIR Systems\Spinnaker 자동 탐색)
-   ├─ InspectionView.Cameras.Hikrobot/     Hikrobot MVS (MVCAM_SDK_PATH)
-   └─ InspectionView.Cameras.FrameGrabbers/ Euresys / Matrox / Dalsa 스텁
+   ├─ InspectionView.Cameras.GenTL/        GenTL 공급자: GENICAM_GENTL64_PATH 의 모든 .cti 로 GigE/USB3/CXP 카메라 (벤더 무관, 빌드 시 SDK 불필요)
+   └─ InspectionView.Cameras.FrameGrabbers/ Euresys / Matrox / Dalsa 스텁 (GenTL 프로듀서가 없는 그래버용)
 ```
 
 ## 빌드
@@ -129,7 +128,7 @@ MFC(C++) 에서는 `src/InspectionView.Bridge/ivbridge.h` 의 C API 를 쓴다 (
 
 ## 카메라
 ```
-Cam = OpenFramegrabber('Simulation')                        // 또는 'File', 'C:/images/*.png', 'Loop=true' / 'Pylon', '<serial>'
+Cam = OpenFramegrabber('Simulation')                        // 또는 'File', 'C:/images/*.png', 'Loop=true' / 'GenTL', '<serial>'
 SetFramegrabberParam(Cam, 'ExposureTime', 2000)
 Image = GrabImage(Cam)                                      // 동기 1장
 GrabImageStart(Cam)                                         // 연속 취득
@@ -137,7 +136,14 @@ Live = GrabImageAsync(Cam)                                  // 최근 프레임
 CloseFramegrabber(Cam)
 ```
 IDE 의 Camera 창에서 공급자/장치를 골라 열고 Snap(변수로) / Live(활성 그래픽 창) / 파라미터 편집, Bind 로 스크립트 변수(`Cam`)에 연결할 수 있다.
-벤더 SDK 는 빌드 시 자동 탐색된다 (msbuild 출력의 `InspectionView.Cameras.*: SDK true/false` 로 확인). 다른 경로면 `-p:IVPylonAssembly=...`, `-p:IVSpinnakerAssembly=...`, `-p:IVMvsAssembly=...`.
+실제 카메라는 **GenTL** 공급자 하나로 연다: 실행 시 `GENICAM_GENTL64_PATH` 의 프로듀서(.cti: pylon, Spinnaker, MVS, Vieworks VZViewer 등 카메라 SDK/뷰어가 등록)를 모두 로드해
+GigE Vision / USB3 Vision / CoaXPress 장치를 찾는다. 빌드에는 벤더 SDK 가 필요 없다.
+- 장치 지정: 시리얼, 사용자 이름(DeviceUserID), 모델 이름 중 하나. 비우면 첫 장치.
+- 같은 카메라가 여러 프로듀서에 보이면 카메라 제조사의 프로듀서를 우선하고, 열기에 실패하면 다음 프로듀서로 재시도한다. 특정 프로듀서 강제: 옵션 `'Producer=pylon'`.
+- 옵션: `'PixelFormat=Mono8;ExposureTime=5000;Buffers=8'` (그 밖의 키는 GenICam 기능 이름으로 설정).
+- 파라미터는 GenICam 기능 이름 그대로 (`ExposureTime`, `Gain`, `TriggerMode`, `GevSCPSPacketSize` ...). 목록에 없는 기능도 이름으로 읽고 쓸 수 있다.
+- 프로듀서 경로를 바꾸려면 환경변수 `IV_GENTL_PATH` (폴더 또는 .cti, `;` 구분).
+- GigE 에서 `IncompleteFrames` 가 늘면 패킷 손실: 점보 프레임을 켜고 `GevSCPSPacketSize` 를 키우거나 `GevSCPD`(패킷 간격)를 늘린다.
 
 ## GPU
 - OpenCL (Intel/AMD/NVIDIA 공통): OpenCL 런타임이 있으면 자동 탐지되어 상태 표시줄에 `GPU: OpenCL: <디바이스>` 로 표시되고, 백엔드를 Auto/Gpu 로 두면 필터·산술·그레이 모폴로지 연산자가 OpenCV T-API(UMat) 로 GPU 에서 실행된다. 타이밍 창의 Backend 열이 실제 사용 백엔드다.

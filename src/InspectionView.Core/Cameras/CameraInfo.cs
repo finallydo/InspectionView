@@ -5,7 +5,7 @@ namespace InspectionView.Core.Cameras
     /// <summary>열거된 카메라 장치 하나의 설명.</summary>
     public sealed class CameraInfo
     {
-        /// <summary>공급자 이름 (File, Simulation, Pylon, Spinnaker, Hikrobot, Euresys ...).</summary>
+        /// <summary>공급자 이름 (File, Simulation, GenTL, Euresys ...).</summary>
         public string Provider { get; }
         /// <summary>공급자 안에서 장치를 여는 데 쓰는 식별자 (시리얼, 경로 등).</summary>
         public string DeviceId { get; }
