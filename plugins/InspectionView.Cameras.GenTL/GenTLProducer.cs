@@ -203,6 +203,21 @@ namespace InspectionView.Cameras.GenTL
             return result;
         }
 
+        /// <summary>인터페이스와 TL 을 닫고 라이브러리를 해제 준비한다 (프로세스 종료 시). 열린 장치는 먼저 닫혀 있어야 한다.</summary>
+        internal void Close()
+        {
+            lock (_lock)
+            {
+                foreach (var h in _interfaces.Values)
+                {
+                    try { Api.IFClose(h); } catch { }
+                }
+                _interfaces.Clear();
+                try { Api.TLClose(TL); } catch { }
+                try { Api.GCCloseLib(); } catch { }
+            }
+        }
+
         public override string ToString() => $"{ShortName} ({Vendor} {TLType})";
     }
 }

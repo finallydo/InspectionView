@@ -43,6 +43,7 @@ namespace InspectionView.Cameras.GenTL
                 {
                     if (_producers != null) return _producers;
                     _producers = new List<GenTLProducer>();
+                    AppDomain.CurrentDomain.ProcessExit += (_, __) => CloseProducers();
                     foreach (var path in GenTLProducer.FindProducerFiles())
                     {
                         try
@@ -57,6 +58,27 @@ namespace InspectionView.Cameras.GenTL
                     return _producers;
                 }
             }
+        }
+
+        /// <summary>
+        /// 프로세스 종료 시 모든 프로듀서를 닫는다 (TLClose/GCCloseLib). 일부 .cti 는 정리 없이 프로세스가 끝나면 DLL 종료 처리에서
+        /// 멈춰 프로세스가 남는다. 정리 자체가 멈추더라도 종료를 막지 않도록 별도 스레드에서 최대 2초만 기다린다.
+        /// </summary>
+        private static void CloseProducers()
+        {
+            List<GenTLProducer>? list;
+            lock (Sync) list = _producers?.ToList();
+            if (list == null || list.Count == 0) return;
+            var t = new System.Threading.Thread(() =>
+            {
+                foreach (var p in list)
+                {
+                    try { p.Close(); } catch { }
+                }
+            })
+            { IsBackground = true, Name = "GenTL shutdown" };
+            t.Start();
+            t.Join(2000);
         }
 
         public static IReadOnlyList<string> ProducerErrors
