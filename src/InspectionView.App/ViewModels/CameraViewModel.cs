@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Threading;
+using InspectionView.App.Viewer;
 using InspectionView.Core.Cameras;
 using InspectionView.Core.Errors;
 using InspectionView.Core.Types;
@@ -103,6 +104,7 @@ namespace InspectionView.App.ViewModels
         private double _statLatencySum;
         private int _statLatencyCount;
         private int _statStart;
+        private int _statUiFrames;
         private string _info = "";
 
         public CameraViewModel(VariableTable variables, Action<string> status)
@@ -360,7 +362,9 @@ namespace InspectionView.App.ViewModels
             _statShown = 0;
             _statLatencySum = 0;
             _statLatencyCount = 0;
+            _statUiFrames = 0;
             _statStart = Environment.TickCount;
+            RenderStats.Reset();
         }
 
         /// <summary>
@@ -378,7 +382,11 @@ namespace InspectionView.App.ViewModels
             double shownFps = _statShown / sec;
             string latency = _statLatencyCount > 0 ? $"{_statLatencySum / _statLatencyCount:0} ms" : "n/a";
             string Get(string n) => Format(SafeGetStatus(cam, n));
-            Info = $"Live: received {camFps:0.0} fps, shown {shownFps:0.0} fps, receive→show {latency}, skipped {Get("SkippedFrames")}, incomplete {Get("IncompleteFrames")}";
+            double render = RenderStats.RenderCount > 0 ? RenderStats.RenderMsSum / RenderStats.RenderCount : 0;
+            double upload = RenderStats.UploadCount > 0 ? RenderStats.UploadMsSum / RenderStats.UploadCount : 0;
+            // received: 카메라에서 받은 수, shown: 화면에 보낸 수, ui: 화면 갱신 횟수, render: 그래픽 창 한 번 그리는 시간(업로드 포함)
+            Info = $"Live: received {camFps:0.0} fps, shown {shownFps:0.0} fps, ui {_statUiFrames / sec:0} fps, "
+                + $"render {render:0.0} ms (upload {upload:0.0} ms), receive→show {latency}, skipped {Get("SkippedFrames")}, incomplete {Get("IncompleteFrames")}";
             ResetLiveStats();
         }
 
@@ -401,7 +409,11 @@ namespace InspectionView.App.ViewModels
             }
         }
 
-        private void OnRendering(object? sender, EventArgs e) => ShowLatestFrame();
+        private void OnRendering(object? sender, EventArgs e)
+        {
+            _statUiFrames++;
+            ShowLatestFrame();
+        }
 
         /// <summary>화면 갱신마다: 새 프레임이 있으면 최신 것 하나만 활성 창에 보낸다.</summary>
         private void ShowLatestFrame()

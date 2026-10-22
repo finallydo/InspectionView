@@ -64,6 +64,8 @@ namespace InspectionView.App
             SaveAsCommand = new RelayCommand(() => SaveScript(true));
 
             InitializeComponent();
+            Histogram.IsVisibleChanged += (_, e) => { if ((bool)e.NewValue) RefreshHistogram(); };
+            LineProfile.IsVisibleChanged += (_, e) => { if ((bool)e.NewValue) RefreshProfile(); };
             DataContext = _vm;
             Dock.Theme = new Vs2013LightTheme();
 
@@ -386,15 +388,18 @@ namespace InspectionView.App
             RefreshProfile();
         }
 
+        /// <summary>히스토그램 탭이 보일 때만 계산한다 (안 보이면 탭을 열 때 계산).</summary>
         private void RefreshHistogram()
         {
             var v = _activeViewer;
+            if (v == null || !Histogram.IsVisible) return;
             Histogram.Update(v.CurrentImage, v.Roi);
         }
 
         private void RefreshProfile()
         {
             var v = _activeViewer;
+            if (v == null || !LineProfile.IsVisible) return;
             if (v.ProfileLine.HasValue)
                 LineProfile.Update(v.CurrentImage, v.ProfileLine.Value.A, v.ProfileLine.Value.B);
             else

@@ -317,6 +317,7 @@ namespace InspectionView.App.Viewer
                 return;
 
             string phase = "init";
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             try
             {
                 bool first = _imageShader == null;
@@ -325,7 +326,14 @@ namespace InspectionView.App.Viewer
                     Log?.Invoke($"GL context #{_contextGeneration} ready: {_glInfo}");
                 _frameCount++;
                 phase = "upload";
+                bool uploading = _pendingImage != null;
+                long tu = System.Diagnostics.Stopwatch.GetTimestamp();
                 ProcessPending();
+                if (uploading)
+                {
+                    RenderStats.UploadMsSum += RenderStats.ToMs(System.Diagnostics.Stopwatch.GetTimestamp() - tu);
+                    RenderStats.UploadCount++;
+                }
 
                 phase = "draw";
                 double dpi = DpiScale();
@@ -372,6 +380,8 @@ namespace InspectionView.App.Viewer
                 // 프레임 끝에서 GPU 작업을 강제로 완료시킨다 (2D 뷰어라 비용은 작다).
                 GL.Flush();
                 GL.Finish();
+                RenderStats.RenderMsSum += RenderStats.ToMs(System.Diagnostics.Stopwatch.GetTimestamp() - t0);
+                RenderStats.RenderCount++;
 
                 if (_frameCount % 15 == 0)
                     UpdateZoomText(vw, vh);

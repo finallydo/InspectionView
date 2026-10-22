@@ -10,7 +10,7 @@ using Image = InspectionView.Core.Types.Image;
 namespace InspectionView.App.Viewer
 {
     /// <summary>표시 중인 이미지(또는 ROI 안)의 히스토그램. 컬러는 채널별 선, 그레이는 막대.</summary>
-    public partial class HistogramControl : UserControl
+    public unsafe partial class HistogramControl : UserControl
     {
         private const int Bins = 256;
         private static readonly Brush[] ChannelBrushes =
@@ -55,7 +55,8 @@ namespace InspectionView.App.Viewer
             }
 
             int channels = Math.Min(image.Channels, 4);
-            int step = Math.Max(1, (int)Math.Sqrt(area.Area / 2_000_000.0));
+            // 약 30만 샘플이면 분포 모양은 같다 (라이브 중에도 UI 스레드에서 몇 ms 안에 끝나도록)
+            int step = Math.Max(1, (int)Math.Sqrt(area.Area / 300_000.0));
 
             // 값 범위 (8bit 은 0..255 고정)
             double min = 0, max = 255;
@@ -79,17 +80,38 @@ namespace InspectionView.App.Viewer
             double scale = (Bins - 1) / (max - min);
             long count = 0;
             double sum = 0;
-            for (int y = area.Y; y < area.Bottom; y += step)
+            if (image.PixelType == PixelType.UInt8)
             {
-                for (int x = area.X; x < area.Right; x += step)
+                // 8bit: 값 = 구간 번호, 행 포인터로 바로 센다
+                byte* basePtr = (byte*)image.GetHostPointer(forWrite: false);
+                int ch = image.Channels;
+                for (int y = area.Y; y < area.Bottom; y += step)
                 {
-                    for (int c = 0; c < channels; c++)
+                    byte* row = basePtr + image.Stride * y;
+                    for (int x = area.X; x < area.Right; x += step)
                     {
-                        double v = image.GetPixel(x, y, c);
-                        int bin = (int)((v - min) * scale);
-                        if (bin < 0) bin = 0; else if (bin >= Bins) bin = Bins - 1;
-                        hist[c][bin]++;
-                        if (c == 0) { sum += v; count++; }
+                        byte* px = row + (long)x * ch;
+                        for (int c = 0; c < channels; c++)
+                            hist[c][px[c]]++;
+                        sum += px[0];
+                        count++;
+                    }
+                }
+            }
+            else
+            {
+                for (int y = area.Y; y < area.Bottom; y += step)
+                {
+                    for (int x = area.X; x < area.Right; x += step)
+                    {
+                        for (int c = 0; c < channels; c++)
+                        {
+                            double v = image.GetPixel(x, y, c);
+                            int bin = (int)((v - min) * scale);
+                            if (bin < 0) bin = 0; else if (bin >= Bins) bin = Bins - 1;
+                            hist[c][bin]++;
+                            if (c == 0) { sum += v; count++; }
+                        }
                     }
                 }
             }
@@ -125,16 +147,24 @@ namespace InspectionView.App.Viewer
             double binW = w / Bins;
             if (_hist.Length == 1)
             {
+                // 막대 256개를 요소 하나(경로)로 그린다 (요소를 매번 만들면 라이브 중 레이아웃 비용이 크다)
                 var ch = _hist[0];
-                for (int i = 0; i < Bins; i++)
+                var geo = new StreamGeometry();
+                using (var ctx = geo.Open())
                 {
-                    if (ch[i] == 0) continue;
-                    double bh = ch[i] / (double)peak * (h - 2);
-                    var bar = new Rectangle { Width = Math.Max(1, binW), Height = bh, Fill = GrayBrush };
-                    Canvas.SetLeft(bar, i * binW);
-                    Canvas.SetTop(bar, h - bh);
-                    Plot.Children.Add(bar);
+                    for (int i = 0; i < Bins; i++)
+                    {
+                        if (ch[i] == 0) continue;
+                        double bh = ch[i] / (double)peak * (h - 2);
+                        double x0 = i * binW, x1 = x0 + Math.Max(1, binW);
+                        ctx.BeginFigure(new Point(x0, h), true, true);
+                        ctx.LineTo(new Point(x0, h - bh), false, false);
+                        ctx.LineTo(new Point(x1, h - bh), false, false);
+                        ctx.LineTo(new Point(x1, h), false, false);
+                    }
                 }
+                geo.Freeze();
+                Plot.Children.Add(new Path { Data = geo, Fill = GrayBrush });
             }
             else
             {

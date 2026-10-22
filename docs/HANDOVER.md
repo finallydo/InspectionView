@@ -43,6 +43,7 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
    수정: Camera 창의 장치 I/O(열거/열기/닫기/파라미터/스냅/라이브 시작·정지)를 작업 큐(백그라운드)로 이동, 라이브 표시는 30ms 전용 타이머, 라이브 중에는 `CameraParameterInfo.IsStatus` 값만 갱신, `NodeMap.Batch()` 읽기 캐시(NoCache 제외, 쓰기 시 무효화), 포트가 offline/연속 타임아웃을 감지하면 이후 호출을 즉시 실패(`IsConnectionLost`), Open 은 직전 열거 결과로 바로 열고 실패 시 500ms → 2000ms 로 재탐색.
    3차 피드백(라이브 지연 그대로, 전체 버벅임): 프레임마다 UI 스레드에서 히스토그램/프로파일 전체 재계산 + 뷰어 범위 계산(GetPixel 25만 회) + Render 우선순위 라이브 타이머가 원인 후보 → 히스토그램은 초당 3회로 제한, 범위 계산은 행 포인터, 라이브 타이머는 Background 우선순위. 라이브 중 Info 에 수신/표시 fps, 수신→표시 지연, skipped/incomplete 표시. 라이브 중 잠긴 파라미터는 라이브를 멈추고 쓴 뒤 다시 시작.
    4차 측정(사용자 PC): received 58.4 fps, shown 17.9 fps, receive→show 21 ms, skipped/incomplete 0 → 카메라/네트워크는 정상, 표시 쪽이 18fps 로 끊김. 30ms DispatcherTimer 가 16.7ms 화면 주기와 어긋나는 문제로 보고 라이브 표시를 `CompositionTarget.Rendering`(vsync) 구동으로 변경.
+   5차: vsync 구동 후에도 끊김 동일 → 히스토그램이 190만 픽셀을 GetPixel 로 초당 3회(UI 스레드, 회당 수십~100ms) 계산하던 것이 주 의심. 히스토그램/프로파일은 탭이 보일 때만, 8bit 는 포인터 + 30만 샘플, 막대는 경로 하나로. 정보 줄에 ui fps, render/upload ms 추가 (`Viewer/RenderStats`).
    **미해결 의심**: 1GbE 에서 2MP 60fps + 1500 바이트 패킷이면 링크가 거의 포화되어 제어 패킷이 타임아웃될 수 있음 → 점보 프레임 + `GevSCPSPacketSize`, 또는 `DeviceLinkThroughputLimit`/`GevSCPD` 로 확인 필요.
 
 ## 5. 다음 작업 우선순위 (2026-10-21 사용자와 합의)
