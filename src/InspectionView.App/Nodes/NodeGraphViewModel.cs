@@ -205,6 +205,8 @@ namespace InspectionView.App.Nodes
             Rebuild();
             IsDirty = false;
             Status = $"{Nodes.Count} node(s), {Connections.Count} connection(s)";
+            if (source.IndexOf("@node", StringComparison.Ordinal) < 0)
+                MeasuredLayoutRequested?.Invoke();
             return true;
         }
 
@@ -329,7 +331,17 @@ namespace InspectionView.App.Nodes
         }
 
         /// <summary>자동 배치: 위상 순서대로 열을 나눠 놓는다.</summary>
-        public void AutoLayout()
+        /// <summary>
+        /// 스크립트에 위치 주석(<c>// @node</c>)이 없어 기본 배치로 만든 경우, 화면에 그린 뒤 실제 크기로 다시 배치해 달라는 요청.
+        /// 뷰가 노드 크기를 재서 <see cref="AutoLayout"/> 을 호출한다.
+        /// </summary>
+        public event Action? MeasuredLayoutRequested;
+
+        /// <summary>
+        /// 데이터 흐름 깊이별 열로 배치한다. <paramref name="measure"/> 가 노드의 실제 크기를 주면 열 폭/행 높이를 거기에 맞추고
+        /// (리터럴 입력칸 때문에 노드 폭이 제각각이라 고정 간격이면 겹친다), 없으면 기본 크기로 본다.
+        /// </summary>
+        public void AutoLayout(Func<NodeVm, Size?>? measure = null)
         {
             var depth = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var n in _document.TopologicalOrder())
@@ -339,13 +351,29 @@ namespace InspectionView.App.Nodes
                     if (depth.TryGetValue(c.FromNode, out var fd)) d = Math.Max(d, fd + 1);
                 depth[n.Variable] = d;
             }
-            var rows = new Dictionary<int, int>();
+            const double Margin = 40, ColumnGap = 60, RowGap = 30;
+            var defaultSize = new Size(260, 120);
+            var columns = new SortedDictionary<int, List<(NodeVm vm, Size size)>>();
             foreach (var vm in Nodes)
             {
                 int d = depth.TryGetValue(vm.Variable, out var dd) ? dd : 0;
-                rows.TryGetValue(d, out int row);
-                rows[d] = row + 1;
-                vm.Location = new Point(40 + d * 280, 40 + row * 150);
+                var size = measure?.Invoke(vm) ?? defaultSize;
+                if (size.Width <= 0 || size.Height <= 0) size = defaultSize;
+                if (!columns.TryGetValue(d, out var list)) columns[d] = list = new List<(NodeVm, Size)>();
+                list.Add((vm, size));
+            }
+
+            double x = Margin;
+            foreach (var col in columns.Values)
+            {
+                double y = Margin, width = 0;
+                foreach (var (vm, size) in col)
+                {
+                    vm.Location = new Point(x, y);
+                    y += size.Height + RowGap;
+                    width = Math.Max(width, size.Width);
+                }
+                x += width + ColumnGap;
             }
             Status = "Auto layout applied";
         }

@@ -752,9 +752,9 @@ namespace InspectionView.App
         {
             if (OperatorTreeView.SelectedItem is OperatorNode node && !node.IsCategory)
             {
-                if (NodesDocument.IsActive)
+                if (NodesDocument.IsSelected)
                 {
-                    // 노드 편집기가 활성이면 노드로 추가
+                    // Nodes 탭이 보이고 있으면 노드로 추가 (IsActive 는 Operators 패널을 클릭하는 순간 false 가 된다)
                     _vm.NodeGraph.AddNode(node.Name);
                     e.Handled = true;
                     return;
