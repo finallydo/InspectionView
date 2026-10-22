@@ -32,6 +32,14 @@ namespace InspectionView.App.ViewModels
             : $"{(double.IsNaN(Info.Min) ? "" : Info.Min.ToString(CultureInfo.InvariantCulture))} .. {(double.IsNaN(Info.Max) ? "" : Info.Max.ToString(CultureInfo.InvariantCulture))}";
         public string Description => Info.Description;
 
+        private static readonly string[] BooleanChoices = { "True", "False" };
+
+        /// <summary>선택형 값 (Enum 항목, Boolean 은 True/False). 비어 있으면 직접 입력.</summary>
+        public string[] Choices => Info.Type == CameraParameterType.Boolean ? BooleanChoices : Info.Choices;
+        /// <summary>콤보박스로 고를 수 있는지 (선택지가 있고 쓰기 가능).</summary>
+        public bool HasChoices => Choices.Length > 0 && !IsReadOnly;
+        public bool ShowRangeText => !HasChoices;
+
         public string Value
         {
             get => _value;
@@ -74,6 +82,7 @@ namespace InspectionView.App.ViewModels
         private string _handleName = "Cam";
         private bool _live;
         private long _shownFrame = -1;
+        private int _lastStatusRefresh;
         private string _info = "";
 
         public CameraViewModel(VariableTable variables, Action<string> status)
@@ -89,6 +98,9 @@ namespace InspectionView.App.ViewModels
 
         /// <summary>라이브 프레임 (UI 스레드, Tick). 인자는 호출 동안만 유효 (표시 측이 AddRef).</summary>
         public event Action<Image>? LiveFrame;
+
+        /// <summary>스냅한 프레임 (UI 스레드). 인자는 호출 동안만 유효 (표시 측이 AddRef).</summary>
+        public event Action<Image, string>? SnapFrame;
 
         public string Provider
         {
@@ -219,7 +231,8 @@ namespace InspectionView.App.ViewModels
                 string name = string.IsNullOrWhiteSpace(_variableName) ? "Image" : _variableName.Trim();
                 _status($"Snapped {img} into '{name}'");
                 _variables.Set(name, img);
-                img.Release();                       // 변수 테이블이 AddRef 했으므로 생성 참조는 해제
+                try { SnapFrame?.Invoke(img, name); }
+                finally { img.Release(); }           // 변수 테이블이 AddRef 했으므로 생성 참조는 해제
                 RefreshParameterValues();
                 return true;
             }
@@ -247,12 +260,15 @@ namespace InspectionView.App.ViewModels
                 Parameters.Add(new CameraParameterItem(this, p, Format(SafeGet(cam, p.Name))));
         }
 
-        private void RefreshParameterValues()
+        private void RefreshParameterValues(bool readOnlyOnly = false)
         {
             var cam = Camera;
             if (cam == null) return;
             foreach (var item in Parameters)
+            {
+                if (readOnlyOnly && !item.Info.ReadOnly) continue;
                 item.Refresh(Format(SafeGet(cam, item.Name)));
+            }
         }
 
         private static object? SafeGet(ICamera cam, string name)
@@ -298,6 +314,13 @@ namespace InspectionView.App.ViewModels
                 if (_live) { _live = false; OnPropertyChanged(nameof(Live)); }
                 return;
             }
+            // 라이브 중에는 읽기 전용 상태 값(FrameCount, IncompleteFrames, LastError ...)만 1초마다
+            // (전체를 읽으면 GigE 왕복 수십 번으로 UI 가 멈춘다). 프레임이 안 와도 갱신해 오류가 보이게 한다.
+            if (Environment.TickCount - _lastStatusRefresh >= 1000)
+            {
+                _lastStatusRefresh = Environment.TickCount;
+                RefreshParameterValues(readOnlyOnly: true);
+            }
             long count = cam is CameraBase cb ? cb.FrameCount : _shownFrame + 1;
             if (count == _shownFrame) return;
             var frame = cam.GetLatestFrame();
@@ -305,7 +328,6 @@ namespace InspectionView.App.ViewModels
             _shownFrame = count;
             try { LiveFrame?.Invoke(frame); }
             finally { frame.Release(); }
-            if ((count & 7) == 0) RefreshParameterValues();
         }
 
         public void Dispose() => Close();

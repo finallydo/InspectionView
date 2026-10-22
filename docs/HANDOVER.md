@@ -38,6 +38,7 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
 7. (2026-10-22) **카메라 GenTL 통합**: 사용자는 Vieworks GigE 를 주로 쓰고 PC 의 `GENICAM_GENTL64_PATH` 에 Vieworks VZViewer / pylon / MVS / Spinnaker 프로듀서가 모두 있음. 벤더별 플러그인(Pylon/Spinnaker/Hikrobot)을 삭제하고 GenTL 공급자 하나로 통합.
    구성: `Native/GenTLApi.cs`(GenTL C API 델리게이트, LoadLibraryEx), `GenTLProducer`(TL/인터페이스/장치 열거), `GenTLCameraProvider`(프로듀서 병렬 열거, 시리얼로 중복 묶기, 제조사 프로듀서 우선 + 실패 시 다음 프로듀서), `GenTLCamera`(XML 로드 → NodeMap, 버퍼 announce/queue, NEW_BUFFER 이벤트), `GenICam/`(Formula, Nodes, NodeMap, DeviceDescription), `PixelFormats`(PFNC, Mono10/12Packed·p 언패킹, YUV422). 단위 테스트 55개(`tests/InspectionView.Cameras.GenTL.Tests`, CI 포함).
    **실기 미검증**: GenTL 호출 순서/상수, GigE 패킷 크기, 각 프로듀서의 URL 형식은 PC 에서 확인 필요. 문제가 나오면 출력 창 메시지(어느 GC 함수가 어떤 GC_ERR 로 실패했는지)를 받아 고친다.
+8. (2026-10-22) 실기 피드백 반영: 라이브는 쌓인 버퍼 중 최신 것만 전달(`SkippedFrames`), 뷰어는 같은 크기/형식이면 텍스처를 재사용하고 이미지 메모리에서 바로 업로드(`ImageTextureSet.Update`, UnpackRowLength), 라이브 중 Camera 창은 읽기 전용 상태 값만 1초마다 갱신, Snap 은 활성 그래픽 창에 바로 표시, 변수창 더블클릭으로 재표시, Enum/Boolean 파라미터는 콤보박스.
 
 ## 5. 다음 작업 우선순위 (2026-10-21 사용자와 합의)
 사용자가 "다음에 뭐 해야 하지?" 라고 물으면 이 목록에서 아직 안 끝난 첫 항목을 안내한다. 기능 작업은 사용자가 명시적으로 요청할 때 시작한다.
@@ -47,7 +48,7 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
 2. §7 빠른 확인 스크립트 F5: ~~뷰어 표시(36400x4000), 상태줄 GPU 표시~~ (확인), 타이밍 창의 Gpu 백엔드, 오버레이는 남음
 3. Camera 창: Simulation 카메라 스냅/라이브/파라미터
 4. Nodes 탭: From Script → 노드 이동 → To Script → Run
-5. **GenTL + Vieworks GigE 실기**: Camera 창에서 공급자 GenTL → Enumerate(장치 이름 끝 `[프로듀서]` 확인) → Open → Snap → Live → ExposureTime/Gain/PixelFormat 쓰기, `IncompleteFrames` 가 0 인지. 실패 시 메시지 전문을 받아 수정
+5. **GenTL + Vieworks GigE 실기**: ~~열기/스냅/라이브/파라미터 쓰기~~ 동작 확인 (2026-10-22). 그때 나온 문제(라이브 지연, 스냅 후 그래픽 창 미갱신, 변수 더블클릭 무반응)를 수정 → 재확인 필요: 라이브 부드러움, `SkippedFrames`/`IncompleteFrames`, 파라미터 콤보박스
 
 **2순위 — 기능 개발 (위에서부터)**
 1. 에지 기반 Shape 매칭 (`CreateShapeModel` / `FindShapeModel`): Halcon 대체의 핵심, NCC 는 조명 변화/가림에 약함

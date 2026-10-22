@@ -102,6 +102,7 @@ namespace InspectionView.Cameras.GenTL
         private Thread? _thread;
         private volatile bool _running;
         private long _incomplete;
+        private long _skipped;
 
         public NodeMap Nodes { get; }
         public GenTLDeviceEntry Device { get; }
@@ -150,6 +151,8 @@ namespace InspectionView.Cameras.GenTL
 
             RegisterParameter(new CameraParameterInfo("IncompleteFrames", CameraParameterType.Integer, "Frames dropped as incomplete (GigE: packet loss, check GevSCPSPacketSize / GevSCPD).", readOnly: true),
                 () => Interlocked.Read(ref _incomplete));
+            RegisterParameter(new CameraParameterInfo("SkippedFrames", CameraParameterType.Integer, "Live: older queued frames skipped to always deliver the newest one (processing slower than the camera frame rate).", readOnly: true),
+                () => Interlocked.Read(ref _skipped));
             RegisterParameter(new CameraParameterInfo("Producer", CameraParameterType.String, "GenTL producer (.cti) used for this camera.", readOnly: true),
                 () => _producer.Path);
             RegisterParameter(new CameraParameterInfo("LastError", CameraParameterType.String, "Last error in continuous acquisition.", readOnly: true),
@@ -496,8 +499,12 @@ namespace InspectionView.Cameras.GenTL
             }
         }
 
-        /// <summary>다음 완전한 프레임을 기다려 복사한다. 불완전 프레임은 세고 버린다.</summary>
-        private unsafe Image WaitFrame(int timeoutMs)
+        /// <summary>
+        /// 다음 완전한 프레임을 기다려 복사한다. 불완전 프레임은 세고 버린다.
+        /// <paramref name="newestOnly"/> 면 이미 쌓여 있는 버퍼 중 가장 최근 것만 쓰고 나머지는 바로 큐에 되돌린다
+        /// (라이브에서 처리/표시가 카메라보다 느릴 때 지연이 버퍼 수만큼 쌓이지 않도록).
+        /// </summary>
+        private unsafe Image WaitFrame(int timeoutMs, bool newestOnly = false)
         {
             int deadline = Environment.TickCount + Math.Max(0, timeoutMs);
             var data = stackalloc byte[2 * IntPtr.Size];   // EVENT_NEW_BUFFER_DATA { BufferHandle, pUserPointer }
@@ -513,6 +520,15 @@ namespace InspectionView.Cameras.GenTL
                 _api.Check(rc, "EventGetData");
 
                 IntPtr buffer = *(IntPtr*)data;
+                while (newestOnly)
+                {
+                    size = (UIntPtr)(2 * IntPtr.Size);
+                    if (_api.EventGetData(_event, (IntPtr)data, ref size, 0) != Gc.ERR_SUCCESS) break;
+                    _api.DSQueueBuffer(_stream, buffer);
+                    buffer = *(IntPtr*)data;
+                    Interlocked.Increment(ref _skipped);
+                }
+
                 Image? img = null;
                 try
                 {
@@ -614,7 +630,7 @@ namespace InspectionView.Cameras.GenTL
                 Image img;
                 try
                 {
-                    img = WaitFrame(500);
+                    img = WaitFrame(500, newestOnly: true);
                 }
                 catch (VisionException ex) when (ex.Code == ErrorCode.CameraTimeout)
                 {

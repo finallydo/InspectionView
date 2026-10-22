@@ -76,6 +76,7 @@ namespace InspectionView.App
             _vm.ScriptDisplayRequested += OnScriptDisplay;
             _vm.ScriptClearWindowRequested += OnScriptClearWindow;
             _vm.Camera.LiveFrame += frame => Display(_activeViewer, frame, "Live");
+            _vm.Camera.SnapFrame += (frame, name) => Display(_activeViewer, frame, name);
             SetupNodeEditor();
             RegisterViewer(Viewer);
             _activeViewer = Viewer;
@@ -383,6 +384,24 @@ namespace InspectionView.App
                     viewer.AddOverlay(value, name);
                     break;
             }
+        }
+
+        /// <summary>변수창 더블클릭: 이미 선택된 변수도 (값이 바뀐 뒤) 다시 표시한다.</summary>
+        private void OnVariableDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (_vm.SelectedVariable != null)
+                ShowVariable(_vm.SelectedVariable);
+        }
+
+        /// <summary>
+        /// Camera 창 파라미터 콤보박스: 고른 값을 바로 카메라에 쓴다. 값 갱신으로 선택이 바뀐 경우는 같은 값이라 쓰지 않는다
+        /// (쓰기에 실패하면 Value 가 되돌아가고 콤보박스도 따라 돌아간다).
+        /// </summary>
+        private void OnCameraChoiceChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox combo && combo.DataContext is CameraParameterItem item
+                && combo.SelectedItem is string choice && !string.Equals(item.Value, choice, StringComparison.Ordinal))
+                item.Value = choice;
         }
 
         /// <summary>변수창 선택 / 자동 표시 → 활성 창.</summary>

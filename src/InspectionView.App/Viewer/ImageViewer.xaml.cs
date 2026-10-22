@@ -434,15 +434,28 @@ namespace InspectionView.App.Viewer
                 var img = _pendingImage;
                 _pendingImage = null;
 
-                _texture?.Dispose();
-                _texture = null;
+                // 같은 크기/형식이면 (라이브) 텍스처를 다시 만들지 않고 내용만 올린다
+                bool reuse = _texture != null && !img.IsDisposed && _texture.CanUpdate(img);
+                if (!reuse)
+                {
+                    _texture?.Dispose();
+                    _texture = null;
+                    _boundsLayer?.Dispose();
+                    _boundsLayer = null;
+                }
                 _image?.Release();
                 _image = img;
 
-                _boundsLayer?.Dispose();
-                _boundsLayer = null;
-
-                if (!img.IsDisposed)
+                if (reuse)
+                {
+                    _texture!.Update(img);
+                    if (_fitOnNextImage)
+                    {
+                        _fitOnNextImage = false;
+                        FitToWindow();
+                    }
+                }
+                else if (!img.IsDisposed)
                 {
                     _texture = ImageTextureSet.Upload(img, _maxTextureSize);
                     _boundsLayer = OverlayLayer.FromRect(new RectI(0, 0, img.Width, img.Height), new OverlayColor(0.6f, 0.6f, 0.6f, 1f), "Bounds");

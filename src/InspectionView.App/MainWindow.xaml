@@ -201,7 +201,20 @@
                                                     </Style>
                                                 </DataGridTextColumn.CellStyle>
                                             </DataGridTextColumn>
-                                            <DataGridTextColumn Header="Range" Binding="{Binding Range}" IsReadOnly="True" Width="90" />
+                                            <!-- 선택형(Enum/Boolean, 쓰기 가능)은 콤보박스로 바로 선택, 그 외는 범위 표시 -->
+                                            <DataGridTemplateColumn Header="Range / Select" Width="110" IsReadOnly="True">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Grid>
+                                                            <TextBlock Text="{Binding Range}" ToolTip="{Binding Range}" VerticalAlignment="Center"
+                                                                       Visibility="{Binding ShowRangeText, Converter={StaticResource BoolToVisibility}}" />
+                                                            <ComboBox ItemsSource="{Binding Choices}" SelectedItem="{Binding Value, Mode=OneWay}" FontSize="11" Padding="2,0"
+                                                                      SelectionChanged="OnCameraChoiceChanged"
+                                                                      Visibility="{Binding HasChoices, Converter={StaticResource BoolToVisibility}}" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </DockPanel>
@@ -254,7 +267,7 @@
                         <ad:LayoutPanel Orientation="Vertical" DockWidth="520">
                             <ad:LayoutAnchorablePane DockHeight="300">
                                 <ad:LayoutAnchorable Title="Variables" ContentId="variables" CanClose="False" CanHide="False">
-                                    <ListView ItemsSource="{Binding Variables}" SelectedItem="{Binding SelectedVariable}" BorderThickness="0">
+                                    <ListView ItemsSource="{Binding Variables}" SelectedItem="{Binding SelectedVariable}" BorderThickness="0" MouseDoubleClick="OnVariableDoubleClick">
                                         <ListView.View>
                                             <GridView>
                                                 <GridViewColumn Header="" Width="52">
