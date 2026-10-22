@@ -22,7 +22,7 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
 | 레지스트리 | `Core/Registry` | `[Operator]`/`[Input]`/`[Output]`/`[Backend]` 속성, `OperatorInvoker.Invoke` 가 에러 코드 반환, `ExecutionRecord` 에 요청/실제 백엔드 |
 | 백엔드 | `Core/Backends` | `BackendSettings`(전역 + 연산자별 오버라이드, Gpu→Parallel→Cpu 폴백), `OpenClRuntime`(OpenCL.dll P/Invoke 로 GPU 탐지), `GpuRuntime`(CUDA 메모리만) |
 | 연산자 | `Core/Operators/*` | IO, Segmentation, Regions, Images, Filters, Arithmetic, Morphology, Xld, Measure(MeasurePos/MeasurePairs), Matching(NCC 회전/스케일), Surface(2.5D), Camera |
-| 카메라 | `Core/Cameras`, `plugins/` | `ICameraProvider`/`ICamera`/`CameraBase`, File·Simulation 내장, Pylon/Spinnaker/Hikrobot 플러그인(SDK 조건부 컴파일), FrameGrabbers 스텁 |
+| 카메라 | `Core/Cameras`, `plugins/` | `ICameraProvider`/`ICamera`/`CameraBase`, File·Simulation 내장, **GenTL 공급자**(`plugins/InspectionView.Cameras.GenTL`: .cti 로드 + 자체 GenICam 노드맵), FrameGrabbers 스텁 |
 | 스크립트 | `Script/` | Lexer→Parser(AST)→Compiler(명령 리스트)→Interpreter, `ScriptEngine`(F5/F6/브레이크포인트), `Graph/GraphDocument`(노드 그래프 ↔ 스크립트) |
 | 런타임 | `Runtime/`, `Bridge/` | `.ivjob` zip, `JobRunner`, `InspectionJob` C# API, `ivbridge.h` C API |
 | IDE | `App/` | `MainViewModel`(100ms Tick 으로 UI 반영), `Editor/`, `Viewer/`(OpenTK GL), `Nodes/`(Nodify), `ViewModels/CameraViewModel` |
@@ -34,10 +34,31 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
 4. GPU: OpenCL(UMat) 백엔드. `GpuFilterOperator`/`GpuBinaryOperator` 기반 클래스, 필터·산술·그레이 모폴로지·Rgb1ToGray 변환. **교훈**: Image 의 패딩 stride 를 그대로 감싼 UMat 은 OpenCV 가 큰 버퍼의 ROI 로 보고 경계 밖 패딩을 읽는다 → `FilterGpu` 는 `CopyTo` 로 연속 사본을 올린다.
 5. 노드 UI: `GraphDocument`(스크립트가 원본, `// @node x,y` 로 위치 저장) + Nodify 편집기(Nodes 탭).
 6. 3차 연산자: MeasurePairs, NCC 회전/스케일 탐색. **교훈**: 회전/스케일 템플릿은 픽셀 인덱스 중심 `((w-1)/2, (h-1)/2)` 기준으로 워프하고, 보고 좌표는 기존 관례대로 픽셀 경계 좌표(+0.5). 계단형 합성 테스트 이미지는 반 픽셀 정렬에 민감하므로 테스트용 모양은 살짝 흐린다.
+7. (2026-10-22) **카메라 GenTL 통합**: 사용자는 Vieworks GigE 를 주로 쓰고 PC 의 `GENICAM_GENTL64_PATH` 에 Vieworks VZViewer / pylon / MVS / Spinnaker 프로듀서가 모두 있음. 벤더별 플러그인(Pylon/Spinnaker/Hikrobot)을 삭제하고 GenTL 공급자 하나로 통합.
+   구성: `Native/GenTLApi.cs`(GenTL C API 델리게이트, LoadLibraryEx), `GenTLProducer`(TL/인터페이스/장치 열거), `GenTLCameraProvider`(프로듀서 병렬 열거, 시리얼로 중복 묶기, 제조사 프로듀서 우선 + 실패 시 다음 프로듀서), `GenTLCamera`(XML 로드 → NodeMap, 버퍼 announce/queue, NEW_BUFFER 이벤트), `GenICam/`(Formula, Nodes, NodeMap, DeviceDescription), `PixelFormats`(PFNC, Mono10/12Packed·p 언패킹, YUV422). 단위 테스트 55개(`tests/InspectionView.Cameras.GenTL.Tests`, CI 포함).
+   **실기 미검증**: GenTL 호출 순서/상수, GigE 패킷 크기, 각 프로듀서의 URL 형식은 PC 에서 확인 필요. 문제가 나오면 출력 창 메시지(어느 GC 함수가 어떤 GC_ERR 로 실패했는지)를 받아 고친다.
 
-## 5. 미완료 / 다음 후보
-- **벤더 카메라 플러그인은 미검증**: SDK 없이 작성. 사용자 PC 에는 pylon 과 Spinnaker 가 설치되어 있어 (`SDK true` 로 인식됨) 실제 컴파일이 되며, 첫 빌드에서 나온 오류(이름 충돌, `ManagedCameraList` using, `GetNode<INode>`)는 수정했다. 추가 컴파일/런타임 오류는 사용자가 붙여 주는 VS 오류 목록으로 고친다 (CI 는 SDK 가 없어 스텁만 컴파일한다).
-- Hikrobot MVS 는 사용자 PC 에 SDK 가 없어(`SDK false`) 아직 실제 컴파일된 적이 없다.
+## 5. 다음 작업 우선순위 (2026-10-21 사용자와 합의)
+사용자가 "다음에 뭐 해야 하지?" 라고 물으면 이 목록에서 아직 안 끝난 첫 항목을 안내한다. 기능 작업은 사용자가 명시적으로 요청할 때 시작한다.
+
+**1순위 — PC 실기 확인 (사용자가 진행, 결과를 붙여 주면 수정)**
+1. ~~솔루션 빌드 성공 확인~~ (2026-10-22 확인)
+2. §7 빠른 확인 스크립트 F5: ~~뷰어 표시(36400x4000), 상태줄 GPU 표시~~ (확인), 타이밍 창의 Gpu 백엔드, 오버레이는 남음
+3. Camera 창: Simulation 카메라 스냅/라이브/파라미터
+4. Nodes 탭: From Script → 노드 이동 → To Script → Run
+5. **GenTL + Vieworks GigE 실기**: Camera 창에서 공급자 GenTL → Enumerate(장치 이름 끝 `[프로듀서]` 확인) → Open → Snap → Live → ExposureTime/Gain/PixelFormat 쓰기, `IncompleteFrames` 가 0 인지. 실패 시 메시지 전문을 받아 수정
+
+**2순위 — 기능 개발 (위에서부터)**
+1. 에지 기반 Shape 매칭 (`CreateShapeModel` / `FindShapeModel`): Halcon 대체의 핵심, NCC 는 조명 변화/가림에 약함
+2. 카메라 캘리브레이션 (캘리브 판 → 내부/외부 파라미터, 왜곡 보정, 픽셀→mm)
+3. 시트오브라이트 기하 캘리브레이션 (2번에 의존)
+4. 뷰어 3D 높이맵 보기 (GL 작업, PC 확인 필수)
+5. 후순위: CUDA 커널(사용자 PC 는 Intel UHD 630 이라 검증 불가), 영역 연산자 GPU 경로
+- 끼워 넣을 정리: `MainViewModel.DisplayRequested` 미사용 경고(CS0067)
+
+## 5-1. 미완료 / 참고
+- **GenTL 공급자는 실기 미검증** (§4-7). GenApi 미구현 부분: 레지스터 캐시/pInvalidator, 청크 데이터, 이벤트, pValueCopy, SmartFeature/ConfRom 등 구형 노드. 필요해지면 추가.
+- 프레임그래버(CXP/Camera Link)는 사용자가 나중에 추가 예정. 그래버가 GenTL 프로듀서(.cti)를 제공하면 GenTL 공급자로 바로 열린다 (Euresys Coaxlink 등). 아니면 FrameGrabbers 스텁을 실제 SDK 구현으로 교체.
 - 시트오브라이트 기하 캘리브레이션(현재는 `DisparityToHeight` 선형 변환만), 카메라 캘리브레이션, 에지 기반 shape 매칭.
 - CUDA 커널(Native 에는 메모리/동기화만), Threshold/Connection 등 영역 연산자의 GPU 경로.
 - 뷰어의 3D 높이맵 보기 (Float32 높이 이미지는 2D 로만 표시).
@@ -48,7 +69,8 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
 - `dotnet build InspectionView.sln` 은 C++ 프로젝트 때문에 실패 → VS 또는 `msbuild InspectionView.sln -restore -p:Configuration=Debug -p:Platform=x64`.
 - **NuGet 복원에는 인터넷이 필요**하다. 최근 추가된 패키지는 `Nodify 6.6.0`(App). `NU1301: api.nuget.org 서비스 인덱스를 로드할 수 없습니다` 가 나오면 네트워크/프록시 문제이며, 복원이 안 되면 XAML 오류(`DockingManager`/`NodifyEditor` 태그 없음)가 연쇄로 나온다. 복원 한 번 성공하면 캐시(`%USERPROFILE%\.nuget\packages`)에서 오프라인 빌드가 된다.
 - Bridge(C++/CLI) 는 "C++/CLI 지원" 구성 요소가 없으면 실패 → `-p:IVSkipBridge=true`.
-- 벤더 SDK 경로는 자동 탐색(`PYLON_DEV_DIR`, `MVCAM_SDK_PATH`, `Program Files\Teledyne|FLIR Systems\Spinnaker`). 빌드 출력의 `InspectionView.Cameras.X: SDK true/false (경로)` 로 확인. 다른 경로면 `-p:IVPylonAssembly=...`, `-p:IVSpinnakerAssembly=...`, `-p:IVMvsAssembly=...`.
+- 카메라는 빌드 시 벤더 SDK 가 필요 없다. 실행 시 `GENICAM_GENTL64_PATH`(사용자 PC: Vieworks VZViewer\GenTL\Win64, pylon Runtime\x64, MVS Runtime\Win64_x64, Spinnaker cti64\vs2015)의 .cti 를 로드. 경로를 바꾸려면 `IV_GENTL_PATH`.
+- 옛 벤더 플러그인 폴더(`plugins\InspectionView.Cameras.Pylon` 등)의 bin/obj 는 git 이 지우지 않으므로 PC 에 남아 있을 수 있다 (빌드에는 영향 없음, App 빌드가 출력 `Plugins\` 의 옛 DLL 은 지운다). 지저분하면 폴더째 삭제.
 - 실기에서만 확인되는 것: OpenGL 뷰어(세 가지 필수 사항은 CLAUDE.md), Camera 창 Live, Nodes 탭, 상태줄의 `GPU: OpenCL: Intel(R) UHD Graphics 630`.
 
 ## 7. 빠른 확인 스크립트 (IDE 에서 F5)

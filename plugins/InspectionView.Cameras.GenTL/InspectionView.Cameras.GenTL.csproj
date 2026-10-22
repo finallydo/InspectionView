@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>InspectionView.Cameras.GenTL</RootNamespace>
+    <Description>GenICam GenTL camera provider: loads every GenTL producer (.cti) in GENICAM_GENTL64_PATH and talks to GigE Vision / USB3 Vision / CoaXPress cameras from any vendor. No vendor SDK is needed at build time.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="InspectionView.Cameras.GenTL.Tests" />
+  </ItemGroup>
+
+</Project>

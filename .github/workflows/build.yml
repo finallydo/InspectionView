@@ -36,6 +36,9 @@ jobs:
       - name: Test Runtime
         run: dotnet test tests/InspectionView.Runtime.Tests/InspectionView.Runtime.Tests.csproj -c Release -p:Platform=x64 --no-build --logger "trx;LogFileName=runtime.trx" --results-directory TestResults
 
+      - name: Test GenTL camera plugin
+        run: dotnet test tests/InspectionView.Cameras.GenTL.Tests/InspectionView.Cameras.GenTL.Tests.csproj -c Release -p:Platform=x64 --no-build --logger "trx;LogFileName=gentl.trx" --results-directory TestResults
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
