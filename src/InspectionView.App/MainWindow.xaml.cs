@@ -76,7 +76,11 @@ namespace InspectionView.App
             _vm.ScriptDisplayRequested += OnScriptDisplay;
             _vm.ScriptClearWindowRequested += OnScriptClearWindow;
             _vm.Camera.LiveFrame += frame => Display(_activeViewer, frame, "Live");
-            _vm.Camera.SnapFrame += (frame, name) => Display(_activeViewer, frame, name);
+            _vm.Camera.SnapFrame += (frame, name) =>
+            {
+                Display(_activeViewer, frame, name);
+                _vm.Tick();                                   // 변수창에 바로 반영
+            };
             SetupNodeEditor();
             RegisterViewer(Viewer);
             _activeViewer = Viewer;
@@ -569,8 +573,7 @@ namespace InspectionView.App
                 _vm.StatusText = "Stop the script before snapping into a variable";
                 return;
             }
-            if (_vm.Camera.Snap())
-                _vm.Tick();
+            _vm.Camera.Snap();                                // 작업 큐에서 취득, 끝나면 SnapFrame
         }
 
         private void OnCameraBind(object sender, RoutedEventArgs e)

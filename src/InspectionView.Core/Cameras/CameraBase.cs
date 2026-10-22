@@ -30,7 +30,7 @@ namespace InspectionView.Core.Cameras
         protected CameraBase(CameraInfo info)
         {
             Info = info ?? throw new ArgumentNullException(nameof(info));
-            RegisterParameter(new CameraParameterInfo("FrameCount", CameraParameterType.Integer, "Frames acquired since open.", readOnly: true), () => Interlocked.Read(ref _frameCount));
+            RegisterParameter(new CameraParameterInfo("FrameCount", CameraParameterType.Integer, "Frames acquired since open.", readOnly: true, status: true), () => Interlocked.Read(ref _frameCount));
         }
 
         public CameraInfo Info { get; }

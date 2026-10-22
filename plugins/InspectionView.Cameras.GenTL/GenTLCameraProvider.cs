@@ -25,6 +25,7 @@ namespace InspectionView.Cameras.GenTL
         private static readonly object Sync = new object();
         private static List<GenTLProducer>? _producers;
         private static readonly List<string> LoadErrors = new List<string>();
+        private static IReadOnlyList<GenTLDeviceEntry> _lastEntries = Array.Empty<GenTLDeviceEntry>();
 
         public string Name => ProviderName;
 
@@ -73,7 +74,9 @@ namespace InspectionView.Cameras.GenTL
                 try { perProducer[i] = producers[i].EnumerateDevices(timeoutMs).ToList(); }
                 catch { perProducer[i] = new List<GenTLDeviceEntry>(); }
             });
-            return perProducer.SelectMany(l => l).ToList();
+            var all = perProducer.SelectMany(l => l).ToList();
+            lock (Sync) _lastEntries = all;
+            return all;
         }
 
         /// <summary>장치별로 묶어 선호 순서(제조사 프로듀서 → 경로 순서)로 정렬한다.</summary>
@@ -142,24 +145,57 @@ namespace InspectionView.Cameras.GenTL
                 throw new VisionException(ErrorCode.CameraSdkNotAvailable, UnavailableReason ?? $"No GenTL producer could be loaded: {string.Join("; ", errs)}");
             }
 
-            var entries = EnumerateAllEntries();
-            if (options.TryGetValue("Producer", out var producer) && !string.IsNullOrWhiteSpace(producer))
-                entries = entries.Where(e => e.Producer.Path.IndexOf(producer, StringComparison.OrdinalIgnoreCase) >= 0
-                    || e.Producer.Vendor.IndexOf(producer, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+            string? producer = options.TryGetValue("Producer", out var p) && !string.IsNullOrWhiteSpace(p) ? p : null;
+            var errors = new List<string>();
 
-            var groups = Group(entries);
-            List<GenTLDeviceEntry>? target = string.IsNullOrEmpty(deviceId)
-                ? groups.FirstOrDefault()
-                : groups.FirstOrDefault(g => g.Any(e => Matches(e, deviceId)));
+            // 1) 직전 열거 결과로 바로 연다 (GigE 탐색을 다시 기다리지 않음)
+            IReadOnlyList<GenTLDeviceEntry> cached;
+            lock (Sync) cached = _lastEntries;
+            var target = Find(cached, deviceId, producer);
+            if (target != null)
+            {
+                var cam = TryOpen(target, options, errors);
+                if (cam != null) return cam;
+            }
+
+            // 2) 다시 찾는다. 방금 닫았거나 재부팅 중인 장치는 응답이 늦으므로 못 찾으면 더 길게 한 번 더.
+            List<List<GenTLDeviceEntry>> groups = new List<List<GenTLDeviceEntry>>();
+            foreach (int timeout in new[] { 500, 2000 })
+            {
+                var entries = Filter(EnumerateAllEntries(timeout), producer);
+                groups = Group(entries);
+                target = Find(entries, deviceId, producer);
+                if (target != null) break;
+            }
             if (target == null)
             {
                 string known = groups.Count == 0 ? "none" : string.Join(", ", groups.Select(g => DisplayNameOf(g[0])));
                 throw new VisionException(ErrorCode.CameraNotFound,
-                    string.IsNullOrEmpty(deviceId) ? $"No GenTL camera found (devices: {known})." : $"GenTL camera '{deviceId}' not found (devices: {known}).");
+                    (string.IsNullOrEmpty(deviceId) ? "No GenTL camera found" : $"GenTL camera '{deviceId}' not found")
+                    + $" (devices: {known}). If it was just closed or lost, wait a few seconds (GigE cameras need time to release the connection) and check the network cable / IP settings.");
             }
 
-            var errors = new List<string>();
-            foreach (var entry in target)
+            var opened = TryOpen(target, options, errors);
+            if (opened != null) return opened;
+            throw new VisionException(ErrorCode.CameraOpenFailed, $"Cannot open '{DisplayNameOf(target[0])}': {string.Join(" | ", errors)}");
+        }
+
+        private static IReadOnlyList<GenTLDeviceEntry> Filter(IReadOnlyList<GenTLDeviceEntry> entries, string? producer)
+            => producer == null ? entries : entries.Where(e => e.Producer.Path.IndexOf(producer, StringComparison.OrdinalIgnoreCase) >= 0
+                || e.Producer.Vendor.IndexOf(producer, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+
+        private static List<GenTLDeviceEntry>? Find(IReadOnlyList<GenTLDeviceEntry> entries, string deviceId, string? producer)
+        {
+            var groups = Group(Filter(entries, producer));
+            return string.IsNullOrEmpty(deviceId)
+                ? groups.FirstOrDefault()
+                : groups.FirstOrDefault(g => g.Any(e => Matches(e, deviceId)));
+        }
+
+        /// <summary>같은 장치를 보여준 프로듀서들을 선호 순서대로 시도한다.</summary>
+        private static ICamera? TryOpen(List<GenTLDeviceEntry> candidates, IReadOnlyDictionary<string, string> options, List<string> errors)
+        {
+            foreach (var entry in candidates)
             {
                 try
                 {
@@ -170,7 +206,7 @@ namespace InspectionView.Cameras.GenTL
                     errors.Add($"[{entry.ProducerName}] {ex.Message}");
                 }
             }
-            throw new VisionException(ErrorCode.CameraOpenFailed, $"Cannot open '{DisplayNameOf(target[0])}': {string.Join(" | ", errors)}");
+            return null;
         }
     }
 }

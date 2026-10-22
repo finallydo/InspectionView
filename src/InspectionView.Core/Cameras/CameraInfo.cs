@@ -48,9 +48,11 @@ namespace InspectionView.Core.Cameras
         public double Min { get; }
         public double Max { get; }
         public string[] Choices { get; }
+        /// <summary>장치 왕복 없이 바로 읽히는 상태 값 (프레임 수, 오류 등). UI 는 라이브 중에 이것만 주기적으로 갱신한다.</summary>
+        public bool IsStatus { get; }
 
         public CameraParameterInfo(string name, CameraParameterType type, string description = "", bool readOnly = false,
-            double min = double.NaN, double max = double.NaN, string[]? choices = null)
+            double min = double.NaN, double max = double.NaN, string[]? choices = null, bool status = false)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Type = type;
@@ -59,6 +61,7 @@ namespace InspectionView.Core.Cameras
             Min = min;
             Max = max;
             Choices = choices ?? Array.Empty<string>();
+            IsStatus = status;
         }
 
         public override string ToString() => $"{Name} ({Type}{(ReadOnly ? ", ro" : "")})";

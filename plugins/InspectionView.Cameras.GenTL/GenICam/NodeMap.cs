@@ -141,6 +141,57 @@ namespace InspectionView.Cameras.GenTL.GenICam
             finally { if (_depth > 0) _depth--; }
         }
 
+        // ------------------------------------------------------------------ 레지스터 읽기 캐시 (배치 동안만)
+
+        private readonly Dictionary<(long address, int length), byte[]> _cache = new Dictionary<(long, int), byte[]>();
+        private int _batchDepth;
+
+        /// <summary>
+        /// 이 범위 안에서는 같은 레지스터를 한 번만 읽는다 (NoCache 레지스터 제외, 쓰기가 있으면 전체 무효화).
+        /// 기능 하나를 읽을 때 pIsAvailable/pMax/열거 항목 가용성 등이 같은 레지스터를 반복해서 읽으므로 GigE 왕복이 크게 준다.
+        /// 범위를 벗어나면 캐시를 버리므로 장치가 스스로 바꾸는 값(자동 노출 등)이 오래 남지 않는다.
+        /// </summary>
+        public IDisposable Batch()
+        {
+            _batchDepth++;
+            return new BatchScope(this);
+        }
+
+        private sealed class BatchScope : IDisposable
+        {
+            private NodeMap? _map;
+            public BatchScope(NodeMap map) { _map = map; }
+
+            public void Dispose()
+            {
+                var m = _map;
+                if (m == null) return;
+                _map = null;
+                if (--m._batchDepth <= 0)
+                {
+                    m._batchDepth = 0;
+                    m._cache.Clear();
+                }
+            }
+        }
+
+        internal byte[] ReadRegister(string? portName, long address, int length, bool cachable)
+        {
+            bool useCache = cachable && _batchDepth > 0;
+            if (useCache && _cache.TryGetValue((address, length), out var cached))
+                return (byte[])cached.Clone();
+            var buf = new byte[length];
+            PortFor(portName).Read(address, buf);
+            if (useCache) _cache[(address, length)] = (byte[])buf.Clone();
+            return buf;
+        }
+
+        internal void WriteRegister(string? portName, long address, byte[] data)
+        {
+            _cache.Clear();
+            PortFor(portName).Write(address, data);
+        }
+
         internal IRegisterPort PortFor(string? portName)
         {
             if (portName != null && Find(portName) is PortNode p && p.IsChunkPort)

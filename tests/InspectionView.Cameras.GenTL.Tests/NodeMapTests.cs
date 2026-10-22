@@ -13,8 +13,11 @@ namespace InspectionView.Cameras.GenTL.Tests
         public readonly byte[] Memory = new byte[0x20000];
         public readonly List<(long address, int length)> Writes = new List<(long, int)>();
 
+        public int Reads;
+
         public void Read(long address, byte[] buffer)
         {
+            Reads++;
             if (address < 0 || address + buffer.Length > Memory.Length) throw new VisionException(ErrorCode.DeviceError, "out of range");
             Array.Copy(Memory, address, buffer, 0, buffer.Length);
         }
@@ -311,6 +314,50 @@ namespace InspectionView.Cameras.GenTL.Tests
             map.Require<IntegerNode>("LutIndex").SetValue(Num.Int(2));
             map.Require<ValueNode>("IndexedReg").SetValue(Num.Int(42));
             Assert.Equal(42u, port.GetBE32(0xA00 + 2 * 4));
+        }
+
+        [Fact]
+        public void BatchCachesRegisterReadsUntilWriteOrEnd()
+        {
+            var (map, port) = Create();
+            var width = map.Require<IntegerNode>("Width");
+
+            port.Reads = 0;
+            width.GetInt();
+            width.GetInt();
+            Assert.Equal(2, port.Reads);                 // 배치 밖: 매번 읽는다
+
+            port.Reads = 0;
+            using (map.Batch())
+            {
+                width.GetInt();
+                width.GetMax();
+                width.GetInt();
+                width.GetMax();
+                Assert.Equal(2, port.Reads);             // WidthReg, WidthMaxReg 한 번씩
+                width.SetValue(Num.Int(512));            // 쓰기는 캐시를 비운다
+                Assert.Equal(512, width.GetInt());
+            }
+
+            port.PutBE32(0x100, 777);                    // 장치가 스스로 바꾼 값: 배치가 끝났으므로 새로 읽힌다
+            Assert.Equal(777, width.GetInt());
+        }
+
+        [Fact]
+        public void NoCacheRegisterIsAlwaysRead()
+        {
+            const string xml = @"<RegisterDescription ModelName=""M"" VendorName=""V"">
+  <IntReg Name=""Temp""><Address>0x10</Address><Length>4</Length><AccessMode>RO</AccessMode><pPort>Device</pPort><Cachable>NoCache</Cachable><Endianess>BigEndian</Endianess></IntReg>
+  <Port Name=""Device""/>
+</RegisterDescription>";
+            var port = new MemoryPort();
+            var map = NodeMap.Parse(xml, port);
+            using (map.Batch())
+            {
+                map.Require<ValueNode>("Temp").GetInt();
+                map.Require<ValueNode>("Temp").GetInt();
+            }
+            Assert.Equal(2, port.Reads);
         }
 
         [Fact]

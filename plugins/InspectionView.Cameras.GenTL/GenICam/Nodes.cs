@@ -617,14 +617,12 @@ namespace InspectionView.Cameras.GenTL.GenICam
         public bool BigEndian => string.Equals(_owner.Text("Endianess"), "BigEndian", StringComparison.Ordinal);
         public AccessMode Mode => Node.ParseAccess(_owner.Text("AccessMode"));
 
-        public byte[] Read()
-        {
-            var buf = new byte[Length];
-            _owner.Map.PortFor(_owner.Text("pPort")).Read(Address, buf);
-            return buf;
-        }
+        /// <summary>NoCache 가 아니면 <see cref="NodeMap.Batch"/> 안에서 같은 주소를 다시 읽지 않는다.</summary>
+        private bool Cachable => !string.Equals(_owner.Text("Cachable"), "NoCache", StringComparison.Ordinal);
 
-        public void Write(byte[] data) => _owner.Map.PortFor(_owner.Text("pPort")).Write(Address, data);
+        public byte[] Read() => _owner.Map.ReadRegister(_owner.Text("pPort"), Address, Length, Cachable);
+
+        public void Write(byte[] data) => _owner.Map.WriteRegister(_owner.Text("pPort"), Address, data);
 
         public static ulong ToUInt(byte[] b, bool bigEndian)
         {

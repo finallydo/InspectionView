@@ -16,6 +16,7 @@ namespace InspectionView.Cameras.GenTL
     {
         private readonly GenTLApi _api;
         private readonly IntPtr _port;
+        private int _timeouts;
 
         public GenTLPort(GenTLApi api, IntPtr port)
         {
@@ -23,21 +24,54 @@ namespace InspectionView.Cameras.GenTL
             _port = port;
         }
 
+        /// <summary>
+        /// 장치와 연결이 끊겼는지 (프로듀서가 "offline" 류의 오류를 냈거나 연속 타임아웃). 끊긴 뒤에는 읽기/쓰기를
+        /// 장치에 보내지 않고 바로 실패시킨다 (호출마다 타임아웃을 기다리면 UI 가 멈춘다). 다시 열어야 복구된다.
+        /// </summary>
+        public bool IsLost { get; private set; }
+        public string LostReason { get; private set; } = "";
+
+        private void ThrowIfLost()
+        {
+            if (IsLost)
+                throw new VisionException(ErrorCode.DeviceNotAvailable, $"Camera connection lost ({LostReason}). Close and open the camera again.");
+        }
+
+        private void Check(int rc, string what)
+        {
+            if (rc == Gc.ERR_SUCCESS)
+            {
+                _timeouts = 0;
+                return;
+            }
+            string text = _api.LastErrorText();
+            bool offline = rc <= -10000 || rc == Gc.ERR_IO || text.IndexOf("offline", StringComparison.OrdinalIgnoreCase) >= 0;
+            if (rc == Gc.ERR_TIMEOUT && ++_timeouts >= 2) offline = true;
+            if (offline && !IsLost)
+            {
+                IsLost = true;
+                LostReason = $"{Gc.ErrorName(rc)}{(string.IsNullOrEmpty(text) ? "" : " - " + text)}";
+            }
+            throw new GenTLException(rc, $"{what} failed: {Gc.ErrorName(rc)}{(string.IsNullOrEmpty(text) ? "" : " - " + text)}");
+        }
+
         public unsafe void Read(long address, byte[] buffer)
         {
+            ThrowIfLost();
             fixed (byte* p = buffer)
             {
                 var size = (UIntPtr)buffer.Length;
-                _api.Check(_api.GCReadPort(_port, unchecked((ulong)address), (IntPtr)p, ref size), $"GCReadPort(0x{address:X}, {buffer.Length})");
+                Check(_api.GCReadPort(_port, unchecked((ulong)address), (IntPtr)p, ref size), $"GCReadPort(0x{address:X}, {buffer.Length})");
             }
         }
 
         public unsafe void Write(long address, byte[] buffer)
         {
+            ThrowIfLost();
             fixed (byte* p = buffer)
             {
                 var size = (UIntPtr)buffer.Length;
-                _api.Check(_api.GCWritePort(_port, unchecked((ulong)address), (IntPtr)p, ref size), $"GCWritePort(0x{address:X}, {buffer.Length})");
+                Check(_api.GCWritePort(_port, unchecked((ulong)address), (IntPtr)p, ref size), $"GCWritePort(0x{address:X}, {buffer.Length})");
             }
         }
     }
@@ -106,6 +140,10 @@ namespace InspectionView.Cameras.GenTL
 
         public NodeMap Nodes { get; }
         public GenTLDeviceEntry Device { get; }
+        private readonly GenTLPort _port = null!;
+
+        /// <summary>장치와 연결이 끊겼는지 (다시 열어야 함).</summary>
+        public bool IsConnectionLost => _port.IsLost;
 
         internal GenTLCamera(GenTLDeviceEntry entry, IReadOnlyDictionary<string, string> options)
             : base(new CameraInfo(GenTLCameraProvider.ProviderName, GenTLCameraProvider.IdOf(entry), entry.Model, entry.Serial, GenTLCameraProvider.DisplayNameOf(entry)))
@@ -132,6 +170,7 @@ namespace InspectionView.Cameras.GenTL
 
                 _api.Check(_api.DevGetPort(_device, out IntPtr remote), "DevGetPort");
                 var port = new GenTLPort(_api, remote);
+                _port = port;
                 string xml = DeviceDescription.Load(DescriptionUrl(remote), port);
                 Nodes = NodeMap.Parse(xml, port);
 
@@ -149,13 +188,13 @@ namespace InspectionView.Cameras.GenTL
                 throw new VisionException(ErrorCode.CameraOpenFailed, $"Cannot open GenTL camera '{entry}': {ex.Message}", ex);
             }
 
-            RegisterParameter(new CameraParameterInfo("IncompleteFrames", CameraParameterType.Integer, "Frames dropped as incomplete (GigE: packet loss, check GevSCPSPacketSize / GevSCPD).", readOnly: true),
+            RegisterParameter(new CameraParameterInfo("IncompleteFrames", CameraParameterType.Integer, "Frames dropped as incomplete (GigE: packet loss, check GevSCPSPacketSize / GevSCPD).", readOnly: true, status: true),
                 () => Interlocked.Read(ref _incomplete));
-            RegisterParameter(new CameraParameterInfo("SkippedFrames", CameraParameterType.Integer, "Live: older queued frames skipped to always deliver the newest one (processing slower than the camera frame rate).", readOnly: true),
+            RegisterParameter(new CameraParameterInfo("SkippedFrames", CameraParameterType.Integer, "Live: older queued frames skipped to always deliver the newest one (processing slower than the camera frame rate).", readOnly: true, status: true),
                 () => Interlocked.Read(ref _skipped));
-            RegisterParameter(new CameraParameterInfo("Producer", CameraParameterType.String, "GenTL producer (.cti) used for this camera.", readOnly: true),
+            RegisterParameter(new CameraParameterInfo("Producer", CameraParameterType.String, "GenTL producer (.cti) used for this camera.", readOnly: true, status: true),
                 () => _producer.Path);
-            RegisterParameter(new CameraParameterInfo("LastError", CameraParameterType.String, "Last error in continuous acquisition.", readOnly: true),
+            RegisterParameter(new CameraParameterInfo("LastError", CameraParameterType.String, "Last error in continuous acquisition.", readOnly: true, status: true),
                 () => _lastError);
 
             // 기본: 프리런 (스냅이 트리거를 기다리지 않도록). 옵션으로 덮어쓸 수 있다.
@@ -170,8 +209,14 @@ namespace InspectionView.Cameras.GenTL
                 try { SetParameter(kv.Key, kv.Value); } catch { /* 옵션은 best-effort */ }
             }
 
-            foreach (var names in StandardFeatures)
-                RegisterFeature(names);
+            lock (Nodes.SyncRoot)
+            {
+                using (Nodes.Batch())
+                {
+                    foreach (var names in StandardFeatures)
+                        RegisterFeature(names);
+                }
+            }
         }
 
         private string DescriptionUrl(IntPtr remote)
@@ -280,6 +325,7 @@ namespace InspectionView.Cameras.GenTL
         private object? ReadFeature(string name)
         {
             lock (Nodes.SyncRoot)
+            using (Nodes.Batch())
             {
                 var node = Nodes.Find(name) ?? throw new VisionException(ErrorCode.CameraParameterInvalid, $"Unknown GenICam feature '{name}'.");
                 switch (node)
@@ -299,6 +345,7 @@ namespace InspectionView.Cameras.GenTL
             if (value is TupleValue t) value = t.IsEmpty ? null : t[0];
             string str = Convert.ToString(value, CultureInfo.InvariantCulture) ?? "";
             lock (Nodes.SyncRoot)
+            using (Nodes.Batch())
             {
                 var node = Nodes.Find(name) ?? throw new VisionException(ErrorCode.CameraParameterInvalid, $"Unknown GenICam feature '{name}'.");
                 switch (node)

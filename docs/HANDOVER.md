@@ -39,6 +39,9 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
    구성: `Native/GenTLApi.cs`(GenTL C API 델리게이트, LoadLibraryEx), `GenTLProducer`(TL/인터페이스/장치 열거), `GenTLCameraProvider`(프로듀서 병렬 열거, 시리얼로 중복 묶기, 제조사 프로듀서 우선 + 실패 시 다음 프로듀서), `GenTLCamera`(XML 로드 → NodeMap, 버퍼 announce/queue, NEW_BUFFER 이벤트), `GenICam/`(Formula, Nodes, NodeMap, DeviceDescription), `PixelFormats`(PFNC, Mono10/12Packed·p 언패킹, YUV422). 단위 테스트 55개(`tests/InspectionView.Cameras.GenTL.Tests`, CI 포함).
    **실기 미검증**: GenTL 호출 순서/상수, GigE 패킷 크기, 각 프로듀서의 URL 형식은 PC 에서 확인 필요. 문제가 나오면 출력 창 메시지(어느 GC 함수가 어떤 GC_ERR 로 실패했는지)를 받아 고친다.
 8. (2026-10-22) 실기 피드백 반영: 라이브는 쌓인 버퍼 중 최신 것만 전달(`SkippedFrames`), 뷰어는 같은 크기/형식이면 텍스처를 재사용하고 이미지 메모리에서 바로 업로드(`ImageTextureSet.Update`, UnpackRowLength), 라이브 중 Camera 창은 읽기 전용 상태 값만 1초마다 갱신, Snap 은 활성 그래픽 창에 바로 표시, 변수창 더블클릭으로 재표시, Enum/Boolean 파라미터는 콤보박스.
+9. (2026-10-22) 2차 피드백: 프로듀서는 Vieworks 폴더의 `GxGVTL` 이 선택됨 (VZ-2MG-M60C00, 1600x1200, 장치 ID `VZ-2MG-M60C00(00-21-49-06-8F-99)`). 라이브 중 파라미터 변경 시 `GCReadPort` 타임아웃 → "Device offline" → 닫은 뒤 장치가 안 보임, UI 가 심하게 멈춤.
+   수정: Camera 창의 장치 I/O(열거/열기/닫기/파라미터/스냅/라이브 시작·정지)를 작업 큐(백그라운드)로 이동, 라이브 표시는 30ms 전용 타이머, 라이브 중에는 `CameraParameterInfo.IsStatus` 값만 갱신, `NodeMap.Batch()` 읽기 캐시(NoCache 제외, 쓰기 시 무효화), 포트가 offline/연속 타임아웃을 감지하면 이후 호출을 즉시 실패(`IsConnectionLost`), Open 은 직전 열거 결과로 바로 열고 실패 시 500ms → 2000ms 로 재탐색.
+   **미해결 의심**: 1GbE 에서 2MP 60fps + 1500 바이트 패킷이면 링크가 거의 포화되어 제어 패킷이 타임아웃될 수 있음 → 점보 프레임 + `GevSCPSPacketSize`, 또는 `DeviceLinkThroughputLimit`/`GevSCPD` 로 확인 필요.
 
 ## 5. 다음 작업 우선순위 (2026-10-21 사용자와 합의)
 사용자가 "다음에 뭐 해야 하지?" 라고 물으면 이 목록에서 아직 안 끝난 첫 항목을 안내한다. 기능 작업은 사용자가 명시적으로 요청할 때 시작한다.
