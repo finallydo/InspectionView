@@ -57,7 +57,7 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
 5. ~~GenTL + Vieworks GigE 실기: 열기/스냅/라이브/파라미터, 라이브 끊김 수정~~ (2026-10-22 사용자 확인 완료)
 
 **2순위 — 기능 개발 (위에서부터)**
-1. 에지 기반 Shape 매칭 (`CreateShapeModel` / `FindShapeModel`): Halcon 대체의 핵심, NCC 는 조명 변화/가림에 약함
+1. ~~에지 기반 Shape 매칭 (`CreateShapeModel` / `FindShapeModel` / `GetShapeMatchContours`)~~ (2026-10-23 구현, 테스트 10개. PC 에서 실제 영상으로 확인 필요)
 2. 카메라 캘리브레이션 (캘리브 판 → 내부/외부 파라미터, 왜곡 보정, 픽셀→mm)
 3. 시트오브라이트 기하 캘리브레이션 (2번에 의존)
 4. 뷰어 3D 높이맵 보기 (GL 작업, PC 확인 필수)

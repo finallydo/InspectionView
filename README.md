@@ -25,7 +25,7 @@ InspectionView/
 │  │  ├─ Interop/    MatInterop (Image <-> OpenCvSharp Mat, 복사 없는 래핑)
 │  │  └─ Operators/  IO(ReadImage, WriteImage, ListFiles), Segmentation(Threshold, DynThreshold), Filters, Arithmetic,
 │  │                 Morphology, Regions(집합/특징/생성/ShapeTrans/Paint), Images, Xld(EdgesSubPix, 피팅, 변환),
-│  │                 Measure(MeasurePos, MeasurePairs), Matching(CreateNccModel, FindNccModel — 회전/스케일 범위),
+│  │                 Measure(MeasurePos, MeasurePairs), Matching(CreateNccModel/FindNccModel, CreateShapeModel/FindShapeModel/GetShapeMatchContours — 회전/스케일 범위),
 │  │                 Surface(2.5D: PhotometricStereo, FocusMeasure/DepthFromFocus, ExtractLaserLine/MeasureProfileSheetOfLight/
 │  │                 DisparityToHeight, PhaseShiftDecode, UnwrapPhase, ComposeIllumination), Camera(InfoFramegrabber, OpenFramegrabber,
 │  │                 GrabImage ..., AutoFocus)
@@ -125,6 +125,17 @@ using var result = job.Run();                                               // �
 if (result.Success) long count = result.GetTuple("Count").L();
 ```
 MFC(C++) 에서는 `src/InspectionView.Bridge/ivbridge.h` 의 C API 를 쓴다 (`ivb_job_load` → `ivb_job_set_image` → `ivb_job_run` → `ivb_job_get_doubles`).
+
+## Shape 매칭 (에지 기반)
+```
+Model = CreateShapeModel(Template, Roi, AngleStart = -3.14, AngleExtent = 6.28)   // Contrast=30, Metric='use_polarity'
+Res = FindShapeModel(Image, Model, MinScore = 0.7, NumMatches = 0)                // Row, Column, Angle(rad), Scale, Score
+Contours = GetShapeMatchContours(Model, Res.Row, Res.Column, Res.Angle, Res.Scale) // 그래픽 창에 오버레이
+```
+- 점수 = 모델 에지 점에서 에지 방향이 맞는 비율 (0..1). 대비/밝기 변화에 영향을 받지 않고, 가려진 부분은 그만큼 점수가 줄어든다 (MinScore 0.7 ≈ 30% 가림 허용).
+- 피라미드 최상단 전역 탐색 → 아래 단으로 추적 → 원본에서 최소제곱 서브픽셀 (위치/각도 약 0.1 px / 0.1°).
+- 좌표 규약은 NCC 와 같다: 기준점 = 템플릿 영역 바운딩 박스 중심, Row/Column 은 픽셀 경계 좌표(픽셀 중심 = 정수 + 0.5), 각도는 반시계 +.
+- `Metric`: `use_polarity`(기본) / `ignore_global_polarity`(전체 반전 허용) / `ignore_local_polarity`(부분 반전 허용). `Greediness` 0..1 (클수록 빠르고 약한 매칭을 놓칠 수 있음).
 
 ## 카메라
 ```
