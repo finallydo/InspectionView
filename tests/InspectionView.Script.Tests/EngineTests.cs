@@ -133,6 +133,46 @@ endfor
         }
 
         [Fact]
+        public void BracketedObjects_MakeObjectArrays()
+        {
+            using var engine = NewEngine();
+            var img = MakeTestImage();
+            engine.Variables.Set("Img", img);
+            img.Release();
+
+            Assert.True(engine.Load(@"
+Dark = CropPart(Img, 0, 0, 64, 64)
+Stack = [Img, Dark, Img]
+N = Len(Stack)
+Mix = ComposeIllumination([Img, Dark], 'Max')
+Parts = Connection(Threshold(Img, 128, 255))
+More = [Parts, Threshold(Img, 100, 255)]
+Same = Stack[2]
+Nums = [1, 2, Len(More)]
+"), string.Join("\n", engine.Diagnostics));
+            Assert.True(engine.Run());
+            Assert.True(engine.WaitForBreak(10000));
+            Assert.True(engine.State == EngineState.Finished, $"error={engine.LastError}");
+
+            var stack = Assert.IsType<ObjectArray<Image>>(engine.Variables.Get("Stack"));
+            Assert.Equal(3, stack.Count);
+            Assert.Same(img, stack[0]);
+            Assert.Equal(3L, T(engine, "N").L());
+            Assert.IsType<Image>(engine.Variables.Get("Mix"));
+            Assert.Equal(3, Assert.IsType<ObjectArray<Region>>(engine.Variables.Get("More")).Count);
+            Assert.Same(img, engine.Variables.Get("Same"));
+            Assert.Equal(new[] { 1L, 2L, 3L }, T(engine, "Nums").ToLongArray());
+            // Img 는 변수 Img, Stack(두 번), Same 이 소유. 임시 배열 [Img, Dark] 는 해제됨
+            Assert.Equal(4, img.RefCount);
+
+            // 종류가 섞이면 오류
+            Assert.True(engine.Load("X = [Img, Threshold(Img, 128, 255)]\n"));
+            Assert.True(engine.Run());
+            Assert.True(engine.WaitForBreak(10000));
+            Assert.Equal(EngineState.Error, engine.State);
+        }
+
+        [Fact]
         public void Operators_RunThroughRegistry_WithReferenceCounting()
         {
             using var engine = NewEngine();

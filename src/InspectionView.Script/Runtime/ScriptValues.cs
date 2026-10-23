@@ -393,6 +393,33 @@ namespace InspectionView.Script.Runtime
             return (int)i;
         }
 
+        /// <summary>
+        /// <c>[A, B, ...]</c> 의 원소가 아이코닉 객체일 때: 같은 종류(Image / Region / XLD)의 객체 배열을 만든다.
+        /// 원소가 객체 배열이면 펼쳐서 잇는다. 각 원소에 AddRef 하므로 반환된 배열은 호출자가 해제한다.
+        /// </summary>
+        public static IconicObject MakeObjectArray(IReadOnlyList<object?> values, int line)
+        {
+            var items = new List<IconicObject>();
+            foreach (var v in values)
+            {
+                switch (v)
+                {
+                    case IObjectArray arr:
+                        for (int i = 0; i < arr.Count; i++) items.Add(arr.ItemAt(i));
+                        break;
+                    case IconicObject io:
+                        items.Add(io);
+                        break;
+                    default:
+                        throw new ScriptRuntimeException(line, $"Cannot mix iconic objects and {TypeName(v)} in [ ... ]");
+                }
+            }
+            if (items.TrueForAll(o => o is Image)) return new ObjectArray<Image>(items.ConvertAll(o => (Image)o));
+            if (items.TrueForAll(o => o is Region)) return new ObjectArray<Region>(items.ConvertAll(o => (Region)o));
+            if (items.TrueForAll(o => o is XldContour)) return new ObjectArray<XldContour>(items.ConvertAll(o => (XldContour)o));
+            throw new ScriptRuntimeException(line, "All objects in [ ... ] must be of the same kind (Image, Region or XLD)");
+        }
+
         private static object SelectIndices(IObjectArray arr, List<int> indices)
         {
             switch (arr)

@@ -211,12 +211,24 @@ namespace InspectionView.Script.Runtime
 
                 case TupleExpression tuple:
                 {
-                    var items = new List<object>();
+                    var values = new List<object?>(tuple.Items.Count);
+                    bool iconic = false;
                     foreach (var item in tuple.Items)
                     {
-                        var t = ScriptValues.ToTuple(Evaluate(item), item.Line);
-                        foreach (var o in t) items.Add(o);
+                        var value = Evaluate(item);
+                        iconic |= value is IconicObject;
+                        values.Add(value);
                     }
+                    // [Img1, Img2, ...] → 객체 배열 (명령이 끝나면 해제, 변수가 받으면 그쪽이 AddRef)
+                    if (iconic)
+                    {
+                        var arr = ScriptValues.MakeObjectArray(values, tuple.Line);
+                        _temporaries.Add(arr);
+                        return arr;
+                    }
+                    var items = new List<object>();
+                    for (int i = 0; i < values.Count; i++)
+                        foreach (var o in ScriptValues.ToTuple(values[i], tuple.Items[i].Line)) items.Add(o);
                     return new TupleValue(items.ToArray());
                 }
 

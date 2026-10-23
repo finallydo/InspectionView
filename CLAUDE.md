@@ -52,7 +52,7 @@ dotnet test tests/InspectionView.Core.Tests -c Debug -p:Platform=x64
 - 예외 정책: 연산자는 `VisionException` 만 던진다. 런타임 API 는 `OperatorInvoker.Invoke` / `TryExecute` 로 에러 코드를 반환한다.
 
 ## 스크립트 문법 (확정)
-- 대입 `Name = Expr` (`:=` 도 허용), 주석 `//`, 문자열 `'...'` 또는 `"..."`, 튜플 `[a, b]`, 인덱스 `T[i]`, 멤버 `Res.Area`
+- 대입 `Name = Expr` (`:=` 도 허용), 주석 `//`, 문자열 `'...'` 또는 `"..."`, 튜플 `[a, b]` (원소가 Image/Region/XLD 면 객체 배열, 배열 원소는 펼쳐서 이음), 인덱스 `T[i]`, 멤버 `Res.Area`
 - 호출 `Op(Arg, Name = Arg)`: 위치 인자 다음에 이름 인자. 출력 1개면 값, 여러 개면 결과 객체
 - `if / elseif / else / endif`, `for I = A to B by S ... endfor`, `while ... endwhile`, `break`, `continue`
 - 연산자: `+ - * / %`, `== != < <= > >=`, `and or not` (`&& || !` 도 허용). `/` 는 항상 실수 나눗셈
