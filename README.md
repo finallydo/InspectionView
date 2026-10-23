@@ -26,6 +26,8 @@ InspectionView/
 │  │  └─ Operators/  IO(ReadImage, WriteImage, ListFiles), Segmentation(Threshold, DynThreshold), Filters, Arithmetic,
 │  │                 Morphology, Regions(집합/특징/생성/ShapeTrans/Paint), Images, Xld(EdgesSubPix, 피팅, 변환),
 │  │                 Measure(MeasurePos, MeasurePairs), Matching(CreateNccModel/FindNccModel, CreateShapeModel/FindShapeModel/GetShapeMatchContours — 회전/스케일 범위),
+│  │                 Calibration(FindCalibPattern, CreateCalibData/AddCalibImage/CalibrateCamera, FindPatternPose,
+│  │                 ImagePointsToWorldPlane/WorldPlaneToImagePoints, UndistortImage, ImageToWorldPlane),
 │  │                 Surface(2.5D: PhotometricStereo, FocusMeasure/DepthFromFocus, ExtractLaserLine/MeasureProfileSheetOfLight/
 │  │                 DisparityToHeight, PhaseShiftDecode, UnwrapPhase, ComposeIllumination), Camera(InfoFramegrabber, OpenFramegrabber,
 │  │                 GrabImage ..., AutoFocus)
@@ -136,6 +138,27 @@ Contours = GetShapeMatchContours(Model, Res.Row, Res.Column, Res.Angle, Res.Scal
 - 피라미드 최상단 전역 탐색 → 아래 단으로 추적 → 원본에서 최소제곱 서브픽셀 (위치/각도 약 0.1 px / 0.1°).
 - 좌표 규약은 NCC 와 같다: 기준점 = 템플릿 영역 바운딩 박스 중심, Row/Column 은 픽셀 경계 좌표(픽셀 중심 = 정수 + 0.5), 각도는 반시계 +.
 - `Metric`: `use_polarity`(기본) / `ignore_global_polarity`(전체 반전 허용) / `ignore_local_polarity`(부분 반전 허용). `Greediness` 0..1 (클수록 빠르고 약한 매칭을 놓칠 수 있음).
+
+## 카메라 캘리브레이션 (픽셀 → mm)
+```
+Calib = CreateCalibData('chessboard', 9, 6, 10.0)          // 안쪽 코너 9x6, 간격 10 mm ('circles', 'asymmetric_circles' 도 가능)
+Files = ListFiles('C:/calib', '*.png')
+for I = 0 to Len(Files) - 1
+    Img = ReadImage(Files[I])
+    Obs = AddCalibImage(Calib, Img)                         // Obs.Found, Obs.Row/Column (검출 점), Obs.Count
+endfor
+Cal = CalibrateCamera(Calib)                                // Cal.CameraParam, Cal.Poses, Cal.Error (RMS px)
+
+// 측정 평면에 판을 놓고 찍은 이미지로 월드 좌표계(판 좌표) 지정
+Pose = FindPatternPose(PlateImg, Cal.CameraParam, 'chessboard', 9, 6, 10.0)
+W = ImagePointsToWorldPlane(Cal.CameraParam, Pose.Pose, Res.Row, Res.Column)   // W.X, W.Y (mm)
+Und = UndistortImage(Img, Cal.CameraParam)                  // 렌즈 왜곡 제거
+Top = ImageToWorldPlane(Img, Cal.CameraParam, Pose.Pose, 800, 600, 0.1)        // 0.1 mm/px 정사영(위에서 본) 영상
+```
+- 판은 10장 이상, 기울여서 화면 전체(특히 가장자리)를 덮게 찍는다. `Error`(RMS) 가 0.5 px 이하면 양호.
+- `CameraParam` = [Fx, Fy, Cx, Cy, K1, K2, P1, P2, K3, Width, Height] (OpenCV 핀홀 + 브라운-콘래디), `Pose` = [Tx, Ty, Tz, Rx, Ry, Rz] (판 → 카메라, 로드리게스 라디안). 둘 다 Tuple 이라 Job 파라미터로 저장할 수 있다.
+- 판 좌표: 첫 점 = 원점, X = 열 방향, Y = 행 방향, 단위 = Spacing 단위. 이미지 Row/Column 은 매칭/측정과 같은 픽셀 경계 좌표.
+- `Distortion`: none / radial / radial_tangential(기본) / full.
 
 ## 카메라
 ```

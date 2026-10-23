@@ -46,6 +46,10 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
    5차: vsync 구동 후에도 끊김 동일 → 히스토그램이 190만 픽셀을 GetPixel 로 초당 3회(UI 스레드, 회당 수십~100ms) 계산하던 것이 주 의심. 히스토그램/프로파일은 탭이 보일 때만, 8bit 는 포인터 + 30만 샘플, 막대는 경로 하나로. 정보 줄에 ui fps, render/upload ms 추가 (`Viewer/RenderStats`).
    **미해결 의심**: 1GbE 에서 2MP 60fps + 1500 바이트 패킷이면 링크가 거의 포화되어 제어 패킷이 타임아웃될 수 있음 → 점보 프레임 + `GevSCPSPacketSize`, 또는 `DeviceLinkThroughputLimit`/`GevSCPD` 로 확인 필요.
 
+## 4-1. 로컬 테스트 (클라우드 리눅스)
+OpenCV 네이티브는 `OpenCvSharp4.runtime.linux-x64` 4.10.0.20240717 의 `libOpenCvSharpExtern.so` 를 쓰고, 이 컨테이너에 없는 의존성(ffmpeg, GTK, tesseract, OpenEXR, libtiff5)은 빈 스텁 .so 를 만들어 `LD_LIBRARY_PATH` 로 준다 (검출/매칭/캘리브레이션은 동작, TIFF 저장 테스트 2개만 실패). 세션마다 스크래치에 다시 만들어야 한다:
+`nm/objdump -T` 로 미해결 심볼을 뽑아 버전 스크립트(LIBAVCODEC_58 등)와 함께 gcc -shared 로 스텁 생성 → `LD_LIBRARY_PATH=<stub>:<so 폴더> dotnet test ...`.
+
 ## 5. 다음 작업 우선순위 (2026-10-21 사용자와 합의)
 사용자가 "다음에 뭐 해야 하지?" 라고 물으면 이 목록에서 아직 안 끝난 첫 항목을 안내한다. 기능 작업은 사용자가 명시적으로 요청할 때 시작한다.
 
@@ -58,7 +62,7 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
 
 **2순위 — 기능 개발 (위에서부터)**
 1. ~~에지 기반 Shape 매칭 (`CreateShapeModel` / `FindShapeModel` / `GetShapeMatchContours`)~~ (2026-10-23 구현, 테스트 10개. PC 에서 실제 영상으로 확인 필요)
-2. 카메라 캘리브레이션 (캘리브 판 → 내부/외부 파라미터, 왜곡 보정, 픽셀→mm)
+2. ~~카메라 캘리브레이션 (캘리브 판 → 내부/외부 파라미터, 왜곡 보정, 픽셀→mm)~~ (2026-10-23 구현, 합성 영상 테스트 5개. PC 에서 실제 판으로 확인 필요)
 3. 시트오브라이트 기하 캘리브레이션 (2번에 의존)
 4. 뷰어 3D 높이맵 보기 (GL 작업, PC 확인 필수)
 5. 후순위: CUDA 커널(사용자 PC 는 Intel UHD 630 이라 검증 불가), 영역 연산자 GPU 경로
