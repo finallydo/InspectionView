@@ -394,22 +394,26 @@ Region = Threshold(Part, 128, 255)
             e.Variables.Set("Img", img);
             img.Release();
 
-            Assert.True(e.Load("ClearWindow()\nDisplay(Img)\nR = Threshold(Img, 128, 255)\nDisplay(R, 1)\nDisplay(Threshold(Img, 0, 10), 2)\n"));
+            Assert.True(e.Load("ClearWindow()\nDisplay(Img)\nR = Threshold(Img, 128, 255)\nDisplay(R, 1)\nDisplay(Threshold(Img, 0, 10), 2)\nDisplay(Img, Window = 3)\nClearWindow(Window = 3)\n"));
             e.Run();
             e.WaitForBreak(10000);
 
             Assert.Equal(EngineState.Finished, e.State);
-            Assert.Equal(new[] { 0 }, cleared);
-            Assert.Equal(3, shown.Count);
+            Assert.Equal(new[] { 0, 3 }, cleared);
+            Assert.Equal(4, shown.Count);
             Assert.Equal(("Image", 0, false), shown[0]);
             Assert.Equal(("Region", 1, false), shown[1]);
             Assert.Equal(("Region", 2, false), shown[2]);     // 임시 객체도 호출 시점에는 살아 있다
+            Assert.Equal(("Image", 3, false), shown[3]);      // 이름 인자
 
-            var bad = NewEngine();
-            Assert.True(bad.Load("Display(1, -1)\n"));
-            bad.Run();
-            bad.WaitForBreak(10000);
-            Assert.Equal(EngineState.Error, bad.State);
+            foreach (var src in new[] { "Display(1, -1)\n", "Display(1, Win = 2)\n", "Display(1, 2, Window = 3)\n", "Len([1], Window = 1)\n" })
+            {
+                using var b = NewEngine();
+                Assert.True(b.Load(src));
+                b.Run();
+                b.WaitForBreak(10000);
+                Assert.Equal(EngineState.Error, b.State);
+            }
         }
 
         [Fact]

@@ -76,6 +76,11 @@ namespace InspectionView.App
             _vm.ResultsRequested += ShowResults;
             _vm.ScriptDisplayRequested += OnScriptDisplay;
             _vm.ScriptClearWindowRequested += OnScriptClearWindow;
+            _vm.GraphicsResetRequested += () =>
+            {
+                for (int i = 0; i < _viewers.Count; i++)
+                    OnScriptClearWindow(i);
+            };
             _vm.Camera.LiveFrame += frame => Display(_activeViewer, frame, "Live");
             _vm.Camera.SnapFrame += (frame, name) =>
             {

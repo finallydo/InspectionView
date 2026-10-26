@@ -94,6 +94,9 @@ namespace InspectionView.App.ViewModels
         /// <summary>스크립트의 ClearWindow(Window).</summary>
         public event Action<int>? ScriptClearWindowRequested;
 
+        /// <summary>Reset: 모든 그래픽 창을 비운다.</summary>
+        public event Action? GraphicsResetRequested;
+
         public MainViewModel(Action<Action> uiInvoke, OperatorRegistry? registry = null)
         {
             _ui = uiInvoke;
@@ -326,12 +329,27 @@ namespace InspectionView.App.ViewModels
             StatusText = "Stopping...";
         }
 
+        /// <summary>HDevelop 의 Reset (F2): PC 를 처음으로, 변수와 그래픽 창을 비운다.</summary>
         public void Reset()
         {
             Engine.Reset();
+            Engine.ClearVariables();
+            Variables.Clear();
+            lock (_dirtyLock)
+                _changedIconics.Clear();
+            // 아직 반영되지 않은 Display 요청은 버린다
+            lock (_displayQueue)
+            {
+                while (_displayQueue.Count > 0)
+                {
+                    if (_displayQueue.Dequeue().Value is Core.Memory.IconicObject io)
+                        io.Release();
+                }
+            }
             ErrorLine = -1;
             CurrentLine = Engine.CurrentLine;
-            StatusText = "Reset";
+            GraphicsResetRequested?.Invoke();
+            StatusText = "Reset (variables and graphics cleared)";
         }
 
         public void ClearVariables()

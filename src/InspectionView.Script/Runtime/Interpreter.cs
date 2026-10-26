@@ -284,7 +284,12 @@ namespace InspectionView.Script.Runtime
             if (Builtins.TryGet(call.Name, out var fn))
             {
                 if (call.NamedArguments.Count > 0)
-                    throw new ScriptRuntimeException(call.Line, $"Built-in function '{call.Name}' does not take named arguments");
+                {
+                    var namedArgs = new List<KeyValuePair<string, object?>>(call.NamedArguments.Count);
+                    foreach (var kv in call.NamedArguments)
+                        namedArgs.Add(new KeyValuePair<string, object?>(kv.Key, Evaluate(kv.Value)));
+                    args = Builtins.BindNamed(call.Name, args, namedArgs, call.Line);
+                }
                 return fn(args, call.Line, Host);
             }
 

@@ -72,7 +72,7 @@
                 <Button Command="{Binding RunCommand, ElementName=Root}" ToolTip="Run (F5)" FontWeight="Bold" Foreground="DarkGreen">▶ Run</Button>
                 <Button Command="{Binding StepCommand, ElementName=Root}" ToolTip="Step (F6)">⤵ Step</Button>
                 <Button Command="{Binding StopCommand, ElementName=Root}" ToolTip="Stop (Shift+F5)" Foreground="DarkRed">■ Stop</Button>
-                <Button Command="{Binding ResetCommand, ElementName=Root}" ToolTip="Reset to first line (F2)">⟲ Reset</Button>
+                <Button Command="{Binding ResetCommand, ElementName=Root}" ToolTip="Reset: first line, clear variables and graphics (F2)">⟲ Reset</Button>
                 <Separator />
                 <TextBlock VerticalAlignment="Center" Margin="4,0">Backend:</TextBlock>
                 <ComboBox Width="90" ItemsSource="{Binding Backends}" SelectedItem="{Binding Backend}" />

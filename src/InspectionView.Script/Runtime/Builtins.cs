@@ -14,6 +14,7 @@ namespace InspectionView.Script.Runtime
         public delegate object? BuiltinFunction(object?[] args, int line, IScriptHost host);
 
         private readonly Dictionary<string, BuiltinFunction> _functions = new Dictionary<string, BuiltinFunction>(StringComparer.Ordinal);
+        private readonly Dictionary<string, string[]> _parameterNames = new Dictionary<string, string[]>(StringComparer.Ordinal);
 
         public Builtins()
         {
@@ -44,21 +45,52 @@ namespace InspectionView.Script.Runtime
             Register("Display", (a, l, h) =>
             {
                 var value = Arg(a, 0, l);
-                int window = a.Length > 1 ? (int)ScriptValues.ToTuple(a[1], l).L() : 0;
+                int window = a.Length > 1 && a[1] != null ? (int)ScriptValues.ToTuple(a[1], l).L() : 0;
                 if (window < 0) throw new ScriptRuntimeException(l, "Window index must be >= 0");
                 h.Display(value, window);
                 return null;
-            });
+            }, "Value", "Window");
             Register("ClearWindow", (a, l, h) =>
             {
-                int window = a.Length > 0 ? (int)ScriptValues.ToTuple(a[0], l).L() : 0;
+                int window = a.Length > 0 && a[0] != null ? (int)ScriptValues.ToTuple(a[0], l).L() : 0;
                 if (window < 0) throw new ScriptRuntimeException(l, "Window index must be >= 0");
                 h.ClearWindow(window);
                 return null;
-            });
+            }, "Window");
         }
 
-        public void Register(string name, BuiltinFunction fn) => _functions[name] = fn;
+        /// <param name="parameterNames">이름 인자(<c>Display(X, Window = 1)</c>)를 받으려면 위치 순서대로의 파라미터 이름.</param>
+        public void Register(string name, BuiltinFunction fn, params string[] parameterNames)
+        {
+            _functions[name] = fn;
+            if (parameterNames.Length > 0)
+                _parameterNames[name] = parameterNames;
+            else
+                _parameterNames.Remove(name);
+        }
+
+        /// <summary>
+        /// 이름 인자를 위치에 넣은 인자 배열. 건너뛴 위치는 null (기본값). 이름 인자를 받지 않는 함수거나 이름이 틀리면 예외.
+        /// </summary>
+        public object?[] BindNamed(string name, object?[] positional, IReadOnlyList<KeyValuePair<string, object?>> named, int line)
+        {
+            if (named.Count == 0)
+                return positional;
+            if (!_parameterNames.TryGetValue(name, out var names))
+                throw new ScriptRuntimeException(line, $"Built-in function '{name}' does not take named arguments");
+            var args = new List<object?>(positional);
+            foreach (var kv in named)
+            {
+                int index = Array.IndexOf(names, kv.Key);
+                if (index < 0)
+                    throw new ScriptRuntimeException(line, $"'{name}' has no parameter '{kv.Key}' (parameters: {string.Join(", ", names)})");
+                if (index < positional.Length)
+                    throw new ScriptRuntimeException(line, $"'{name}': parameter '{kv.Key}' is already given by position");
+                while (args.Count <= index) args.Add(null);
+                args[index] = kv.Value;
+            }
+            return args.ToArray();
+        }
 
         public bool Contains(string name) => _functions.ContainsKey(name);
 
