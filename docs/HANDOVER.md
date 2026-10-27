@@ -30,7 +30,7 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
 
 ## 4. 최근 세션에서 한 일 (시간순)
 1. 연산자 2차: EdgesSubPix/XLD 피팅/변환, MeasurePos, NCC 매칭, ListFiles.
-2. 2.5D `Operators/Surface`: PhotometricStereo(Frankot-Chellappa 적분), FocusMeasure/DepthFromFocus(FocusOps 공유), ExtractLaserLine/MeasureProfileSheetOfLight/DisparityToHeight, PhaseShiftDecode, UnwrapPhase, ComposeIllumination.
+2. 2.5D `Operators/Surface`: PhotometricStereo(Frankot-Chellappa 적분), DerivateVectorField(가우시안 미분 divergence/curl/mean_curvature; `samples/CAVTEST_0022` 실제 4방향 조명 샘플의 기존 결과 Albedo/Divergence 와 일치 확인 — Slant≈27°, 기존 Divergence ≈ 127.5 − 117·div 로 부호 반대 규약), FocusMeasure/DepthFromFocus(FocusOps 공유), ExtractLaserLine/MeasureProfileSheetOfLight/DisparityToHeight, PhaseShiftDecode, UnwrapPhase, ComposeIllumination.
 3. 카메라 계층 + 프레임그래버 연산자 + IDE Camera 창 + 벤더 플러그인 4개 + AutoFocus.
 4. GPU: OpenCL(UMat) 백엔드. `GpuFilterOperator`/`GpuBinaryOperator` 기반 클래스, 필터·산술·그레이 모폴로지·Rgb1ToGray 변환. **교훈**: Image 의 패딩 stride 를 그대로 감싼 UMat 은 OpenCV 가 큰 버퍼의 ROI 로 보고 경계 밖 패딩을 읽는다 → `FilterGpu` 는 `CopyTo` 로 연속 사본을 올린다.
 5. 노드 UI: `GraphDocument`(스크립트가 원본, `// @node x,y` 로 위치 저장) + Nodify 편집기(Nodes 탭).

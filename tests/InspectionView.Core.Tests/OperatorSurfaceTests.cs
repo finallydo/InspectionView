@@ -1,8 +1,11 @@
 using System;
+using System.IO;
 using System.Linq;
 using InspectionView.Core.Backends;
+using InspectionView.Core.Interop;
 using InspectionView.Core.Registry;
 using InspectionView.Core.Types;
+using OpenCvSharp;
 using Xunit;
 
 namespace InspectionView.Core.Tests
@@ -119,6 +122,133 @@ namespace InspectionView.Core.Tests
             var r = OperatorInvoker.Invoke(OperatorRegistry.Default, "PhotometricStereo", new object[] { arr, (TupleValue)new double[] { 45, 45, 45 }, (TupleValue)new double[] { 0, 0, 0 } }, ctx);
             Assert.False(r.Success);
             Assert.Equal(Core.Errors.ErrorCode.InvalidArgument, r.Code);
+        }
+
+        // ---------------------------------------------------------------- Vector field derivatives
+
+        [Theory]
+        [InlineData(BackendKind.Cpu)]
+        [InlineData(BackendKind.Parallel)]
+        public void DerivateVectorField_DivergenceCurlAndCurvature(BackendKind backend)
+        {
+            // 포물면 z = a(x² + y²): p = 2ax, q = 2ay → div = 4a, curl = 0, 꼭짓점 평균 곡률 = 2a.
+            // 띠(256행) 경계를 지나도록 세로를 크게 한다.
+            const int w = 80, h = 600;
+            const double a = 0.01, cx = 40, cy = 300;
+            using var p = Float(w, h, (x, y) => 2 * a * (x - cx));
+            using var q = Float(w, h, (x, y) => 2 * a * (y - cy));
+            using var div = Out<Image>(ExecOn(backend, "DerivateVectorField", p, q, 1.5, "divergence"), "ImageResult");
+            using var curl = Out<Image>(ExecOn(backend, "DerivateVectorField", p, q, 1.5, "curl"), "ImageResult");
+            using var mean = Out<Image>(ExecOn(backend, "DerivateVectorField", p, q, 1.5, "mean_curvature"), "ImageResult");
+            Assert.Equal(PixelType.Float32, div.PixelType);
+            for (int y = 10; y < h - 10; y += 7)
+                for (int x = 10; x < w - 10; x += 9)
+                {
+                    Assert.Equal(4 * a, div.GetPixel(x, y), 4);
+                    Assert.Equal(0, curl.GetPixel(x, y), 4);
+                }
+            Assert.Equal(2 * a, mean.GetPixel(40, 300), 4);
+            // 꼭짓점에서 멀어지면 기울기가 커져 평균 곡률이 줄어든다
+            Assert.True(mean.GetPixel(40, 100) < mean.GetPixel(40, 300));
+
+            // 회전장 (-y, x): curl = 2, div = 0. 바이트 입력도 받는다
+            using var rx = Float(w, h, (x, y) => -(y - cy) * 0.1);
+            using var ry = Float(w, h, (x, y) => (x - cx) * 0.1);
+            using var c2 = Out<Image>(ExecOn(backend, "DerivateVectorField", rx, ry, 1.0, "curl"), "ImageResult");
+            using var d2 = Out<Image>(ExecOn(backend, "DerivateVectorField", rx, ry, 1.0, "div"), "ImageResult");
+            Assert.Equal(0.2, c2.GetPixel(20, 400), 4);
+            Assert.Equal(0, d2.GetPixel(20, 400), 4);
+        }
+
+        [Fact]
+        public void DerivateVectorField_ValidatesInputs()
+        {
+            using var a = Float(16, 16, (x, y) => 0);
+            using var b = Float(16, 12, (x, y) => 0);
+            var ctx = new OperatorContext(new BackendSettings(), new ExecutionProfiler());
+            Assert.Equal(Core.Errors.ErrorCode.SizeMismatch, OperatorInvoker.Invoke(OperatorRegistry.Default, "DerivateVectorField", new object?[] { a, b }, ctx).Code);
+            Assert.False(OperatorInvoker.Invoke(OperatorRegistry.Default, "DerivateVectorField", new object?[] { a, a, 1.0, "gauss" }, ctx).Success);
+            Assert.False(OperatorInvoker.Invoke(OperatorRegistry.Default, "DerivateVectorField", new object?[] { a, a, 0.0 }, ctx).Success);
+        }
+
+        /// <summary>저장소의 samples 폴더 (없으면 null).</summary>
+        private static string? SampleDir(string name)
+        {
+            for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "InspectionView.sln")))
+                {
+                    var path = Path.Combine(dir.FullName, "samples", name);
+                    return Directory.Exists(path) ? path : null;
+                }
+            }
+            return null;
+        }
+
+        private static Image ReadCrop(string path, Rect roi)
+        {
+            using var m = Cv2.ImRead(path, ImreadModes.Grayscale);
+            Assert.False(m.Empty(), path);
+            using var sub = new Mat(m, roi);
+            return MatInterop.ToImage(sub);
+        }
+
+        private static double Correlation(Image a, Image b, int margin, out double meanAbsAfterFit, out double slope, out double offset)
+        {
+            int n = 0;
+            double sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+            for (int y = 0; y < b.Height; y++)
+                for (int x = 0; x < b.Width; x++)
+                {
+                    double u = a.GetPixel(x + margin, y + margin), v = b.GetPixel(x, y);
+                    n++; sx += u; sy += v; sxx += u * u; syy += v * v; sxy += u * v;
+                }
+            double cov = sxy / n - sx / n * sy / n, vx = sxx / n - sx / n * sx / n, vy = syy / n - sy / n * sy / n;
+            slope = cov / vx;
+            offset = sy / n - slope * sx / n;
+            double err = 0;
+            for (int y = 0; y < b.Height; y++)
+                for (int x = 0; x < b.Width; x++)
+                    err += Math.Abs(slope * a.GetPixel(x + margin, y + margin) + offset - b.GetPixel(x, y));
+            meanAbsAfterFit = err / n;
+            return cov / Math.Sqrt(vx * vy);
+        }
+
+        /// <summary>
+        /// 실제 샘플 (samples/CAVTEST_0022: 상하좌우 조명 4장 + 기존 OpenCV 변환 결과 Albedo/Divergence) 과 비교한다.
+        /// 기존 결과는 원본의 열 400 부터 자른 영역이고, 조명 Slant ≈ 27°, Divergence ≈ 127.5 − 124·div (기울기 부호가 반대인 규약).
+        /// </summary>
+        [Fact]
+        public void PhotometricStereo_MatchesReferenceSample()
+        {
+            var dir = SampleDir("CAVTEST_0022");
+            if (dir == null) return;   // 샘플이 없는 체크아웃에서는 건너뜀
+
+            const int x0 = 1100, y0 = 2600, size = 600, margin = 20, cropX = 400;
+            var roi = new Rect(x0 + cropX - margin, y0 - margin, size + 2 * margin, size + 2 * margin);
+            var stack = new ObjectArray<Image>();
+            foreach (var name in new[] { "Top", "Bot", "Left", "Right" })
+                stack.AddOwned(ReadCrop(Path.Combine(dir, name + ".bmp"), roi));
+            using (stack)
+            using (var refAlbedo = ReadCrop(Path.Combine(dir, "Albedo.bmp"), new Rect(x0, y0, size, size)))
+            using (var refDiv = ReadCrop(Path.Combine(dir, "Divergence.bmp"), new Rect(x0, y0, size, size)))
+            {
+                var ps = ExecOn(BackendKind.Parallel, "PhotometricStereo", stack, (TupleValue)new double[] { 27, 27, 27, 27 }, (TupleValue)new double[] { 90, 270, 180, 0 }, false);
+                using var gx = Out<Image>(ps, "GradientX");
+                using var gy = Out<Image>(ps, "GradientY");
+                using var albedo = Out<Image>(ps, "Albedo");
+                using var div = Out<Image>(ExecOn(BackendKind.Parallel, "DerivateVectorField", gx, gy, 1.1, "divergence"), "ImageResult");
+
+                double ca = Correlation(albedo, refAlbedo, margin, out double errA, out _, out _);
+                Assert.True(ca > 0.99, $"albedo correlation {ca:F4}");
+                Assert.True(errA < 4, $"albedo error {errA:F2}");
+
+                double cd = Correlation(div, refDiv, margin, out double errD, out double slope, out double offset);
+                Assert.True(cd < -0.95, $"divergence correlation {cd:F4}");
+                Assert.True(errD < 1.5, $"divergence error {errD:F2}");
+                Assert.InRange(slope, -150, -100);
+                Assert.InRange(offset, 125, 130);
+            }
         }
 
         // ---------------------------------------------------------------- Focus

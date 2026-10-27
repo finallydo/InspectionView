@@ -104,5 +104,36 @@ namespace InspectionView.Core.Tests
             b.Release();
             Assert.True(a.IsDisposed);
         }
+
+        [Fact]
+        public void DisplayRange_IgnoresOutliersAndNaN()
+        {
+            // 0..1 사이 값 + 튀는 값 몇 개 (그림자 쪽 기울기 폭주) + NaN
+            using var img = Image.Create(200, 200, PixelType.Float32, 1, clear: true);
+            for (int y = 0; y < 200; y++)
+            {
+                var row = img.GetRow<float>(y);
+                for (int x = 0; x < 200; x++)
+                    row[x] = (float)(x / 199.0);
+            }
+            img.GetRow<float>(5)[5] = 10000f;
+            img.GetRow<float>(6)[6] = -10000f;
+            img.GetRow<float>(7)[7] = float.NaN;
+            img.GetRow<float>(8)[8] = float.PositiveInfinity;
+
+            Assert.True(DisplayRange.TryRobust(img, 1_000_000, 1, out double lo, out double hi));
+            Assert.InRange(lo, 0, 0.02);
+            Assert.InRange(hi, 0.98, 1.0);
+
+            // 대부분 같은 값이면 전체 범위, 전부 같으면 폭 1
+            using var flat = Image.Create(50, 50, PixelType.Float32, 1, clear: true);
+            flat.GetRow<float>(0)[0] = 3f;
+            Assert.True(DisplayRange.TryRobust(flat, 10_000, 1, out lo, out hi));
+            Assert.Equal(0, lo);
+            Assert.Equal(3, hi);
+            flat.GetRow<float>(0)[0] = 0f;
+            Assert.True(DisplayRange.TryRobust(flat, 10_000, 1, out lo, out hi));
+            Assert.Equal(1, hi - lo);
+        }
     }
 }

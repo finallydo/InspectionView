@@ -7,7 +7,7 @@ namespace InspectionView.App.Imaging
 {
     /// <summary>
     /// Image → WPF BitmapSource (임시 미리보기용; OpenGL 뷰어가 들어오면 썸네일 생성에만 사용).
-    /// 8bit 는 그대로, 16bit/32bit/Float 는 min-max 로 8bit 스케일링한다. 컬러는 BGR 순서를 유지한다.
+    /// 8bit 는 그대로, 16bit 는 min-max, 그 외 (실수 등) 는 양 끝 0.5 % 를 버린 범위로 8bit 스케일링한다. 컬러는 BGR 순서를 유지한다.
     /// </summary>
     public static unsafe class ImageBitmapConverter
     {
@@ -80,6 +80,14 @@ namespace InspectionView.App.Imaging
 
         private static void ComputeRange(Image image, int step, out double scale, out double offset)
         {
+            // 실수 영상은 튀는 값을 버린 백분위 범위
+            if (image.PixelType != PixelType.UInt16
+                && DisplayRange.TryRobust(image, 65536, image.Channels >= 3 ? 3 : 1, out double lo, out double hi))
+            {
+                offset = lo;
+                scale = 255.0 / (hi - lo);
+                return;
+            }
             double min = double.MaxValue, max = double.MinValue;
             byte* src = (byte*)image.GetHostPointer(forWrite: false);
             int ch = image.Channels;

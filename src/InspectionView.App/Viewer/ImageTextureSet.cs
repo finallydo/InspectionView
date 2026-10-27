@@ -276,7 +276,10 @@ namespace InspectionView.App.Viewer
             return buf;
         }
 
-        /// <summary>표시 범위 계산: 기본은 8bit 0~255 / 그 외 샘플링한 min/max. 자동 대비는 항상 min/max.</summary>
+        /// <summary>
+        /// 표시 범위 계산: 8bit 는 기본 0~255, 자동 대비는 min/max. 16bit 는 min/max.
+        /// 그 외 (실수 등) 는 양 끝 0.5 % 를 버린 백분위 범위 (<see cref="DisplayRange"/>).
+        /// </summary>
         private void ComputeRange(Image image, int outCh, int maxSamples)
         {
             int step = Math.Max(1, (int)Math.Sqrt((double)image.Width * image.Height / maxSamples));
@@ -306,20 +309,11 @@ namespace InspectionView.App.Viewer
                 min = lo;
                 max = hi;
             }
-            else
+            else if (!DisplayRange.TryRobust(image, maxSamples, take, out min, out max))
             {
-                for (int y = 0; y < image.Height; y += step)
-                {
-                    for (int x = 0; x < image.Width; x += step)
-                    {
-                        for (int k = 0; k < take; k++)
-                        {
-                            double v = image.GetPixel(x, y, k);
-                            if (v < min) min = v;
-                            if (v > max) max = v;
-                        }
-                    }
-                }
+                // 실수 영상: 튀는 값을 버린 백분위 범위 (전부 NaN 이면 0~1)
+                min = 0;
+                max = 1;
             }
             if (max <= min)
             {

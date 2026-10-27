@@ -29,7 +29,7 @@ InspectionView/
 │  │                 Calibration(FindCalibPattern, CreateCalibData/AddCalibImage/CalibrateCamera, FindPatternPose,
 │  │                 ImagePointsToWorldPlane/WorldPlaneToImagePoints, UndistortImage, ImageToWorldPlane),
 │  │                 Surface(2.5D: PhotometricStereo, FocusMeasure/DepthFromFocus, ExtractLaserLine/MeasureProfileSheetOfLight/
-│  │                 DisparityToHeight, PhaseShiftDecode, UnwrapPhase, ComposeIllumination), Camera(InfoFramegrabber, OpenFramegrabber,
+│  │                 DisparityToHeight, PhaseShiftDecode, UnwrapPhase, ComposeIllumination, DerivateVectorField), Camera(InfoFramegrabber, OpenFramegrabber,
 │  │                 GrabImage ..., AutoFocus)
 │  │  └─ Cameras/    ICameraProvider / ICamera / CameraBase, CameraRegistry, File·Simulation 카메라, CameraFrames(버퍼 변환)
 │  ├─ InspectionView.Native/          [C++ DLL]  GPU 백엔드 (CUDA 옵션, 없으면 device_count = 0)
