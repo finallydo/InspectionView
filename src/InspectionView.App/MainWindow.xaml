@@ -296,7 +296,7 @@
                                 </ad:LayoutAnchorable>
                             </ad:LayoutAnchorablePane>
                             <ad:LayoutAnchorablePane x:Name="GraphicsPane">
-                                <ad:LayoutAnchorable Title="Graphics 1" ContentId="graphics1" CanClose="False" CanHide="False">
+                                <ad:LayoutAnchorable x:Name="Graphics1Anchorable" Title="Graphics 1" ContentId="graphics1" CanClose="False" CanHide="False">
                                     <viewer:ImageViewer x:Name="Viewer" />
                                 </ad:LayoutAnchorable>
                             </ad:LayoutAnchorablePane>

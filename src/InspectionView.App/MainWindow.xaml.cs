@@ -32,6 +32,8 @@ namespace InspectionView.App
         private readonly DispatcherTimer _parseTimer;
         private readonly List<ImageViewer> _viewers = new List<ImageViewer>();
         private readonly Dictionary<ImageViewer, AvalonDock.Layout.LayoutAnchorable> _extraWindows = new Dictionary<ImageViewer, AvalonDock.Layout.LayoutAnchorable>();
+        /// <summary>모든 그래픽 창의 도킹 탭 (Graphics 1 포함).</summary>
+        private readonly Dictionary<ImageViewer, AvalonDock.Layout.LayoutAnchorable> _anchorables = new Dictionary<ImageViewer, AvalonDock.Layout.LayoutAnchorable>();
         private ImageViewer _activeViewer = null!;
         private CompletionWindow? _completion;
         private OverloadInsightWindow? _insight;
@@ -88,8 +90,8 @@ namespace InspectionView.App
                 _vm.Tick();                                   // 변수창에 바로 반영
             };
             SetupNodeEditor();
-            RegisterViewer(Viewer);
             _activeViewer = Viewer;
+            RegisterViewer(Viewer, Graphics1Anchorable);
 
             _uiTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
             _uiTimer.Tick += (s, e) => _vm.Tick();
@@ -283,13 +285,17 @@ namespace InspectionView.App
         }
 
         // ------------------------------------------------------------------
-        // 그래픽 창 (여러 개; 마지막으로 클릭한 창이 활성 창)
+        // 그래픽 창 (여러 개; 탭으로 고르거나 클릭한 창이 활성 창)
         // ------------------------------------------------------------------
 
-        private void RegisterViewer(ImageViewer viewer)
+        private void RegisterViewer(ImageViewer viewer, AvalonDock.Layout.LayoutAnchorable anchorable)
         {
             _viewers.Add(viewer);
+            _anchorables[viewer] = anchorable;
             viewer.Activated += () => SetActiveViewer(viewer);
+            // 탭을 눌러 이 창을 보이게 하거나 제목을 클릭해도 활성 창이 된다
+            anchorable.IsSelectedChanged += (s, e) => { if (anchorable.IsSelected && _viewers.Contains(viewer)) SetActiveViewer(viewer); };
+            anchorable.IsActiveChanged += (s, e) => { if (anchorable.IsActive && _viewers.Contains(viewer)) SetActiveViewer(viewer); };
             viewer.RenderError += message => _vm.ReportViewerError($"Graphics {_viewers.IndexOf(viewer) + 1}: {message}");
             viewer.Log += message => _vm.LogViewer($"Graphics {_viewers.IndexOf(viewer) + 1}: {message}");
             viewer.InsertRoiRequested += InsertRoi;
@@ -305,6 +311,13 @@ namespace InspectionView.App
             _activeViewer = viewer;
             _vm.StatusText = $"Active graphics window: {_viewers.IndexOf(viewer) + 1}";
             RefreshAnalysis();
+        }
+
+        /// <summary>활성 창의 탭을 앞으로 (다른 탭에 가려져 있으면 표시한 결과가 안 보이므로).</summary>
+        private void BringActiveViewerToFront()
+        {
+            if (_anchorables.TryGetValue(_activeViewer, out var anchorable) && !anchorable.IsSelected)
+                anchorable.IsSelected = true;
         }
 
         /// <summary>index 번 창을 돌려준다 (없으면 만든다).</summary>
@@ -330,13 +343,14 @@ namespace InspectionView.App
             {
                 _viewers.Remove(viewer);
                 _extraWindows.Remove(viewer);
+                _anchorables.Remove(viewer);
                 viewer.SetImage(null);
                 if (ReferenceEquals(_activeViewer, viewer))
                     SetActiveViewer(Viewer);
             };
             _extraWindows[viewer] = anchorable;
             GraphicsPane.Children.Add(anchorable);
-            RegisterViewer(viewer);
+            RegisterViewer(viewer, anchorable);
             anchorable.IsActive = true;
             return viewer;
         }
@@ -454,6 +468,7 @@ namespace InspectionView.App
         {
             if (_vm.State == EngineState.Running)
                 return;
+            BringActiveViewerToFront();
             Display(_activeViewer, item.Raw, item.Name);
         }
 
@@ -473,6 +488,7 @@ namespace InspectionView.App
                 }
             }
 
+            BringActiveViewerToFront();
             if (lastImage >= 0)
                 Display(_activeViewer, items[lastImage].Raw, items[lastImage].Name);
 
