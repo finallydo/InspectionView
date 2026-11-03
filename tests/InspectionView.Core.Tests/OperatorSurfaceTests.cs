@@ -215,11 +215,12 @@ namespace InspectionView.Core.Tests
         }
 
         /// <summary>
-        /// 실제 샘플 (samples/CAVTEST_0022: 상하좌우 조명 4장 + 기존 OpenCV 변환 결과 Albedo/Divergence) 과 비교한다.
-        /// 기존 결과는 원본의 열 400 부터 자른 영역이고, 조명 Slant ≈ 27°, Divergence ≈ 127.5 − 124·div (기울기 부호가 반대인 규약).
+        /// 실제 샘플 (samples/CAVTEST_0022: 상하좌우 조명 4장 + 기존 OpenCV 변환 결과 Albedo/Divergence) 을 재현한다
+        /// (samples/CAVTEST_0022/Reproduce.ivs 와 같은 설정). 기존 결과는 원본의 열 400 부터 자른 영역,
+        /// 조명은 기존 Albedo 에서 역산한 조명별 Slant/Tilt, 8bit 변환은 Albedo = 0.895·ρ − 48.71, Divergence = 127.5 − 124.8·div.
         /// </summary>
         [Fact]
-        public void PhotometricStereo_MatchesReferenceSample()
+        public void PhotometricStereo_ReproducesReferenceSample()
         {
             var dir = SampleDir("CAVTEST_0022");
             if (dir == null) return;   // 샘플이 없는 체크아웃에서는 건너뜀
@@ -233,21 +234,33 @@ namespace InspectionView.Core.Tests
             using (var refAlbedo = ReadCrop(Path.Combine(dir, "Albedo.bmp"), new Rect(x0, y0, size, size)))
             using (var refDiv = ReadCrop(Path.Combine(dir, "Divergence.bmp"), new Rect(x0, y0, size, size)))
             {
-                var ps = ExecOn(BackendKind.Parallel, "PhotometricStereo", stack, (TupleValue)new double[] { 27, 27, 27, 27 }, (TupleValue)new double[] { 90, 270, 180, 0 }, false);
+                var ps = ExecOn(BackendKind.Parallel, "PhotometricStereo", stack,
+                    (TupleValue)new double[] { 35.1, 36.95, 21.28, 20.77 }, (TupleValue)new double[] { 88.9, 268.19, 180.92, -3.92 }, false);
                 using var gx = Out<Image>(ps, "GradientX");
                 using var gy = Out<Image>(ps, "GradientY");
                 using var albedo = Out<Image>(ps, "Albedo");
                 using var div = Out<Image>(ExecOn(BackendKind.Parallel, "DerivateVectorField", gx, gy, 1.1, "divergence"), "ImageResult");
 
-                double ca = Correlation(albedo, refAlbedo, margin, out double errA, out _, out _);
-                Assert.True(ca > 0.99, $"albedo correlation {ca:F4}");
-                Assert.True(errA < 4, $"albedo error {errA:F2}");
+                // Albedo: 8bit 로 바꾸면 거의 모든 픽셀이 기존 값과 같고 나머지도 1 이내
+                int n = 0, exact = 0, within1 = 0;
+                double divErr = 0;
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++)
+                    {
+                        double a8 = Math.Max(0, Math.Min(255, Math.Round(0.895 * albedo.GetPixel(x + margin, y + margin) - 48.71)));
+                        double d = Math.Abs(a8 - refAlbedo.GetPixel(x, y));
+                        n++;
+                        if (d == 0) exact++;
+                        if (d <= 1) within1++;
+                        double v8 = Math.Max(0, Math.Min(255, Math.Round(127.5 - 124.8 * div.GetPixel(x + margin, y + margin))));
+                        divErr += Math.Abs(v8 - refDiv.GetPixel(x, y));
+                    }
+                Assert.True(exact > 0.9 * n, $"albedo exact {exact / (double)n:P1}");
+                Assert.True(within1 > 0.999 * n, $"albedo within 1: {within1 / (double)n:P2}");
+                Assert.True(divErr / n < 1.0, $"divergence mean error {divErr / n:F2}");
 
-                double cd = Correlation(div, refDiv, margin, out double errD, out double slope, out double offset);
+                double cd = Correlation(div, refDiv, margin, out _, out _, out _);
                 Assert.True(cd < -0.95, $"divergence correlation {cd:F4}");
-                Assert.True(errD < 1.5, $"divergence error {errD:F2}");
-                Assert.InRange(slope, -150, -100);
-                Assert.InRange(offset, 125, 130);
             }
         }
 

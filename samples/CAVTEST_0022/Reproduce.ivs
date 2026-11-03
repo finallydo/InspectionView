@@ -1,0 +1,31 @@
+// CAVTEST_0022: 상하좌우 조명 4장 → 기존 결과(Albedo.bmp / Divergence.bmp)와 같은 형식의 8bit 영상
+// 경로는 저장소를 받은 위치에 맞게 고칠 것
+Dir = 'E:/InspectionView/InspectionView/samples/CAVTEST_0022/'
+Top = ReadImage(Dir + 'Top.bmp')
+Bot = ReadImage(Dir + 'Bot.bmp')
+Left = ReadImage(Dir + 'Left.bmp')
+Right = ReadImage(Dir + 'Right.bmp')
+
+// 조명별 각도 (기존 Albedo.bmp 에서 역산: 상하는 약 35~37도, 좌우는 약 21도)
+Ps = PhotometricStereo([Top, Bot, Left, Right], Slants = [35.1, 36.95, 21.28, 20.77], Tilts = [88.9, 268.19, 180.92, -3.92], ComputeHeight = false)
+Div = DerivateVectorField(Ps.GradientX, Ps.GradientY, 1.1, 'divergence')
+
+// 기존 결과와 같은 8bit 변환과 같은 영역 (열 400 부터 3296 x 12150)
+Albedo8 = CropPart(ConvertImageType(ScaleImage(Ps.Albedo, 0.895, -48.71), 'UInt8'), 0, 400, 3296, 12150)
+Div8 = CropPart(ConvertImageType(ScaleImage(Div, -124.8, 127.5), 'UInt8'), 0, 400, 3296, 12150)
+
+// 기존 결과와 나란히 비교
+RefA = ReadImage(Dir + 'Albedo.bmp')
+RefD = ReadImage(Dir + 'Divergence.bmp')
+Display(Albedo8, Window = 0)
+Display(RefA, Window = 1)
+Display(Div8, Window = 2)
+Display(RefD, Window = 3)
+
+// 차이 영상 (0 이면 같음)
+DiffA = AbsDiffImage(Albedo8, RefA)
+DiffD = AbsDiffImage(Div8, RefD)
+SA = Intensity(DiffA)
+SD = Intensity(DiffD)
+Print('Albedo 평균 차이 = ' + Str(SA.Mean) + ', 최대 = ' + Str(MinMaxGray(DiffA).Max))
+Print('Divergence 평균 차이 = ' + Str(SD.Mean) + ', 최대 = ' + Str(MinMaxGray(DiffD).Max))
