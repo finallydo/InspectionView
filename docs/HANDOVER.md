@@ -46,6 +46,8 @@ C++ Native(CUDA 옵션), C++/CLI Bridge(MFC 용), 카메라 벤더 플러그인.
    5차: vsync 구동 후에도 끊김 동일 → 히스토그램이 190만 픽셀을 GetPixel 로 초당 3회(UI 스레드, 회당 수십~100ms) 계산하던 것이 주 의심. 히스토그램/프로파일은 탭이 보일 때만, 8bit 는 포인터 + 30만 샘플, 막대는 경로 하나로. 정보 줄에 ui fps, render/upload ms 추가 (`Viewer/RenderStats`).
    **미해결 의심**: 1GbE 에서 2MP 60fps + 1500 바이트 패킷이면 링크가 거의 포화되어 제어 패킷이 타임아웃될 수 있음 → 점보 프레임 + `GevSCPSPacketSize`, 또는 `DeviceLinkThroughputLimit`/`GevSCPD` 로 확인 필요.
 
+10. (2026-10-23 ~ 11-03) 4방향 조명(CAVTEST_0022) 작업: 스크립트 `[Img1, Img2]` 이미지 배열, Reset(F2) 이 변수/그래픽 창 초기화, 내장 함수 이름 인자(`Display(X, Window = 1)`), `DerivateVectorField`, 실수 영상 표시 범위 백분위(`DisplayRange`), 그래픽 탭 선택 = 활성 창(변수 더블클릭 시 활성 창 탭을 앞으로), `samples/CAVTEST_0022/Reproduce.ivs`. 사용자는 Shape 매칭(위치 찾기)과 Photometric Stereo(상하좌우 조명)를 헷갈렸음 → 지금 주 업무는 PS.
+
 ## 4-1. 로컬 테스트 (클라우드 리눅스)
 OpenCV 네이티브는 `OpenCvSharp4.runtime.linux-x64` 4.10.0.20240717 의 `libOpenCvSharpExtern.so` 를 쓰고, 이 컨테이너에 없는 의존성(ffmpeg, GTK, tesseract, OpenEXR, libtiff5)은 빈 스텁 .so 를 만들어 `LD_LIBRARY_PATH` 로 준다 (검출/매칭/캘리브레이션은 동작, TIFF 저장 테스트 2개만 실패). 세션마다 스크래치에 다시 만들어야 한다:
 `nm/objdump -T` 로 미해결 심볼을 뽑아 버전 스크립트(LIBAVCODEC_58 등)와 함께 gcc -shared 로 스텁 생성 → `LD_LIBRARY_PATH=<stub>:<so 폴더> dotnet test ...`.
@@ -69,6 +71,11 @@ OpenCV 네이티브는 `OpenCvSharp4.runtime.linux-x64` 4.10.0.20240717 의 `lib
 - ~~끼워 넣을 정리: `MainViewModel.DisplayRequested` 미사용 경고(CS0067)~~ (제거)
 
 ## 5-1. 미완료 / 참고
+- **CAVTEST_0022 Divergence 완전 일치 (사용자가 보류, 2026-11-04)**: Albedo 는 픽셀 단위 일치(최대 1), Divergence 는 평균 0.69 차이. 사용자가 다시 꺼내면 "어떤 값을 바꾸면 기존 결과처럼 되는지" 추측을 정리해 알려 준다. 지금까지의 분석 (스크래치 분석, 재현 안 된 것 포함):
+  - 이미 맞춘 것: 영역(열 400~, 3296x12150), 조명별 Slant/Tilt(Albedo 역산, 이득 1), 8bit 변환(Albedo 0.895·ρ−48.71 반올림), Divergence 부호 반대(기존 = 127.5 − k·div), σ≈1.1, k≈124.8.
+  - 효과 없던 것: 입력/출력 블러, 미디언, 서브픽셀 이동, 조명 순서, 미분 커널 종류(Sobel 3/5/7, Scharr, 중앙/전진 차분, 블러+Sobel), 임의 9x9 선형 필터 맞춤(0.66 이 한계 → 커널 문제가 아님), p/q 클리핑, 법선 8bit 양자화, float32.
+  - 남은 후보(추측, 이 순서로 의심): (1) 기울기 계산에 쓴 조명 벡터가 Albedo 로는 알 수 없는 회전만큼 다름 (전체 회전 맞춤으로 0.73→0.67), (2) 그림자/포화(255) 픽셀을 빼는 등 픽셀별 비선형 처리, (3) 기울기를 정규화 법선이 아닌 다른 정의로 계산(예: 조명비 (R−L)/S 계열 — 여러 필드를 섞으면 0.48 까지 내려감), (4) 8bit 변환이 고정 배율이 아니라 영상별 정규화. 사용자가 바꿔 볼 수 있는 값: `Reproduce.ivs` 의 Sigma(1.0~1.3), Slants/Tilts, ScaleImage 의 −124.8/127.5.
+  - 확실히 맞추려면 `PS_Result_OpenCV` 를 만든 원래 코드가 필요 (사용자에게 요청함, 아직 없음).
 - **GenTL 공급자는 실기 미검증** (§4-7). GenApi 미구현 부분: 레지스터 캐시/pInvalidator, 청크 데이터, 이벤트, pValueCopy, SmartFeature/ConfRom 등 구형 노드. 필요해지면 추가.
 - 프레임그래버(CXP/Camera Link)는 사용자가 나중에 추가 예정. 그래버가 GenTL 프로듀서(.cti)를 제공하면 GenTL 공급자로 바로 열린다 (Euresys Coaxlink 등). 아니면 FrameGrabbers 스텁을 실제 SDK 구현으로 교체.
 - 시트오브라이트 기하 캘리브레이션(현재는 `DisparityToHeight` 선형 변환만), 카메라 캘리브레이션, 에지 기반 shape 매칭.
@@ -78,6 +85,7 @@ OpenCV 네이티브는 `OpenCvSharp4.runtime.linux-x64` 4.10.0.20240717 의 `lib
 
 
 ## 6. 사용자 PC 빌드에서 알아둘 것
+- **사용자 저장소 위치는 `E:\InspectionView\InspectionView`** (바깥 `E:\InspectionView` 는 git 저장소가 아님). `git pull` 도 그 폴더에서.
 - `dotnet build InspectionView.sln` 은 C++ 프로젝트 때문에 실패 → VS 또는 `msbuild InspectionView.sln -restore -p:Configuration=Debug -p:Platform=x64`.
 - **NuGet 복원에는 인터넷이 필요**하다. 최근 추가된 패키지는 `Nodify 6.6.0`(App). `NU1301: api.nuget.org 서비스 인덱스를 로드할 수 없습니다` 가 나오면 네트워크/프록시 문제이며, 복원이 안 되면 XAML 오류(`DockingManager`/`NodifyEditor` 태그 없음)가 연쇄로 나온다. 복원 한 번 성공하면 캐시(`%USERPROFILE%\.nuget\packages`)에서 오프라인 빌드가 된다.
 - Bridge(C++/CLI) 는 "C++/CLI 지원" 구성 요소가 없으면 실패 → `-p:IVSkipBridge=true`.
